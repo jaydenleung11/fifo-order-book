@@ -12,26 +12,29 @@ Repository: <https://github.com/jaydenleung11/fifo-order-book>
 
 ## What it shows
 
-- **A ladder of queues.** There are 5 bid and 5 ask levels. Each level is a horizontal queue of
-  order chips showing id, trader, size and arrival time. The head of every queue faces the
-  spread; the tail is a dashed "joins here" slot.
-- **Animations driven by the engine's event log.** A new chip slides in at the tail. A market
-  order token walks to the best opposing level and trades with the head. Partial fills shrink the
-  head chip, and filled chips leave with a flash.
-- **Operations panel.** It names each step (`asks[101].enqueue(#14) O(1)`,
-  `level.dequeue() → #3 O(1)`) and highlights the matching pseudocode line.
-- **Trade tape**, **cumulative depth chart**, and a **split-flap last-trade board**.
-- **FIFO vs LIFO.** Flip the matching rule. The "Same book, other rule" card replays every
-  finished market order on a copy of the book under both rules, so you can see who would have
-  cut the line.
-- **Checkout-line skin.** The same queues drawn as supermarket lines: shoppers, baskets, tills.
-- **Predict the fill.** Each market order pauses before its first trade, you click the chip you
-  think fills first, and you get instant feedback.
-- **3 guided scenarios:** same price, partial fill, sweeping levels. Each step has a one-line
-  caption, and each scenario can be deep-linked (`#same-price`, `#partial`, `#sweep`).
+- **A 3D order book that runs by itself.** The *Live market* mode invents a steady flow of
+  orders, so you can just watch. Each price level is a lane of blocks: block height is the order's
+  size, and every queue's **head** faces the middle aisle. New orders drop in at the **tail**. A
+  glowing market order walks down the aisle to the best price and trades with the head. Filled
+  orders float away, and the rest of the line slides forward. Pause at any time and step one
+  operation at a time (`←`/`→`), or drag to orbit the camera.
+- **Inside one queue.** The lane being worked on is redrawn as a linked list (`head → … → tail →
+  null`), with the pointer change for each step (`tail.next = node`, `head = head.next`) and its
+  cost, O(1). Click any lane in 3D to pin it.
+- **Who trades first? (FIFO vs LIFO).** A small animated picture of four orders shows the queue
+  (oldest first) and the stack (newest cuts the line). Clicking either one switches the rule for
+  the whole book. After each market order, the book replays it both ways on a copy.
+- **Guided scenarios** (same price, partial fill, sweeping levels). They advance on their own, one
+  caption per step, and can be deep-linked (`#same-price`, `#partial`, `#sweep`).
+- **Build your own** (`#build`): place limit and market orders yourself.
+- **Predict the fill**: pauses before each trade, and you click the block you think fills first.
+- **The code**: the matching algorithm's pseudocode, with the running line lit up. Also a
+  **trade tape**, a **depth chart** and a split-flap **last trade** board.
+- **Flat view**: the same book as 2D order chips or checkout lines. Phones start in this view,
+  and it is also used when WebGL is unavailable.
 
-Controls: Step back, Play/Pause, Step, Reset, and Speed (½×, 1×, 2×). Keyboard: `←`/`→` step,
-`P` plays or pauses.
+Controls: Step back, Play/Pause, Step, Reset, and Speed (½×, 1×, 2×, 4×). Keyboard: `←`/`→` step,
+`P` plays or pauses. With reduced motion turned on, nothing moves until you press Play.
 
 ## Run it
 
@@ -66,13 +69,14 @@ src/engine/        pure TypeScript, no React or DOM
                    cursor moves, so playback is deterministic
   engine.test.ts   Vitest: FIFO order, partial fills, multi-level sweeps,
                    price priority, LIFO contrast, playback determinism
-src/app/           controller (useReducer), plain-English explanations,
-                   pseudocode, scenarios
-src/components/    Book (ladder, lanes, chips), controls, panels
+src/app/           controller (useReducer), live order generator
+                   (seeded, repeatable), explanations, pseudocode, scenarios
+src/components/    three/Book3D (react-three-fiber scene), QueueDiagram
+                   (linked list), RuleCard, flat Book, controls, panels
 ```
 
-Stack: Vite 8, React 19, TypeScript 7, Tailwind CSS 4, Motion (layout and enter/exit
-animations), Radix primitives (toggle groups, switch) styled shadcn-style with `cva`, Lucide
+Stack: Vite 8, React 19, TypeScript 7, Tailwind CSS 4, three.js with react-three-fiber and
+drei (the 3D book, lazy-loaded), Motion (layout and enter/exit animations), Radix primitives (toggle groups, switch) styled shadcn-style with `cva`, Lucide
 icons, Vitest, and self-hosted fonts (Schibsted Grotesk, JetBrains Mono for code) via
 Fontsource.
 

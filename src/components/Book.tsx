@@ -5,7 +5,7 @@ import type { Prediction, Skin } from '@/app/useController'
 import { clock, cn } from '@/lib/utils'
 import SplitFlapText from './kokonutui/split-flap-text'
 
-interface Focus {
+export interface Focus {
   makerSide: Side | null
   price: number | null
   orderId: number | null
@@ -14,7 +14,7 @@ interface Focus {
 }
 
 /** Which level / order the current event is about, for highlighting. */
-function focusOf(entry: LogEntry | null): Focus {
+export function focusOf(entry: LogEntry | null): Focus {
   const f: Focus = { makerSide: null, price: null, orderId: null, flashKey: null, joinedId: null }
   if (!entry) return f
   const e = entry.event

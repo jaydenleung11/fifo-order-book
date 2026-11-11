@@ -9,6 +9,8 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   plugins: [react(), tailwindcss()],
+  // The 3D book (three.js) is a separate chunk, loaded only when shown.
+  build: { chunkSizeWarningLimit: 1200 },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

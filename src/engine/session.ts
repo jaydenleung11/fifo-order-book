@@ -1,6 +1,11 @@
 import { DEFAULT_CONFIG, OrderBook, compareFairness, type BookConfig } from './orderBook'
 import type { BookSnapshot, LogEntry, Priority, Side, Trade } from './types'
 
+export interface FairnessResult {
+  fifo: Trade[]
+  lifo: Trade[]
+}
+
 export type Command =
   | { type: 'limit'; side: Side; price: number; qty: number; trader?: string }
   | { type: 'market'; side: Side; qty: number; priority: Priority; trader?: string }
@@ -22,6 +27,10 @@ export interface Session {
   commandStarts: number[]
   /** number of log entries shown (0..log.length) */
   cursor: number
+  /** The live book after every command (so a push never replays history). */
+  engine: OrderBook
+  /** For each market command: what FIFO and LIFO would each do on the book it met. */
+  fairness: (FairnessResult | null)[]
 }
 
 function run(book: OrderBook, cmd: Command): LogEntry[] {
@@ -40,7 +49,17 @@ export function replay(config: BookConfig, seed: Command[], commands: Command[])
 
 export function createSession(seed: Command[], config: BookConfig = DEFAULT_CONFIG): Session {
   const book = replay(config, seed, [])
-  return { config, seed, commands: [], base: book.snapshot(), log: [], commandStarts: [], cursor: 0 }
+  return {
+    config,
+    seed,
+    commands: [],
+    base: book.snapshot(),
+    log: [],
+    commandStarts: [],
+    cursor: 0,
+    engine: book,
+    fairness: [],
+  }
 }
 
 export function resetSession(s: Session): Session {
@@ -49,7 +68,8 @@ export function resetSession(s: Session): Session {
 
 /** Append a command; its events are queued after any not yet shown. */
 export function pushCommand(s: Session, cmd: Command): Session {
-  const book = replay(s.config, s.seed, s.commands)
+  const book = s.engine.clone()
+  let fair: FairnessResult | null = null
   if (cmd.type === 'market') {
     const makerSide: Side = cmd.side === 'buy' ? 'sell' : 'buy'
     if (book.depth(makerSide) === 0) {
@@ -59,6 +79,7 @@ export function pushCommand(s: Session, cmd: Command): Session {
           : 'No buyers are waiting, so a market sell has nothing to trade with. Add a limit buy first.',
       )
     }
+    fair = compareFairness(book, cmd.side, cmd.qty)
   }
   const entries = run(book, cmd)
   return {
@@ -66,6 +87,31 @@ export function pushCommand(s: Session, cmd: Command): Session {
     commands: [...s.commands, cmd],
     commandStarts: [...s.commandStarts, s.log.length],
     log: [...s.log, ...entries],
+    engine: book,
+    fairness: [...s.fairness, fair],
+  }
+}
+
+/**
+ * Forget old history so an endless simulation stays small. Whole commands
+ * are dropped from the front, only if they are at least `keepBehind`
+ * entries behind the cursor. The book itself is unchanged.
+ */
+export function trimSession(s: Session, maxEntries = 320, keepBehind = 120): Session {
+  if (s.log.length <= maxEntries) return s
+  const limit = s.cursor - keepBehind
+  let k = 0
+  while (k + 1 < s.commandStarts.length && s.commandStarts[k + 1] <= limit) k++
+  const drop = s.commandStarts[k]
+  if (k === 0 || drop <= 0) return s
+  return {
+    ...s,
+    base: s.log[drop - 1].book,
+    commands: s.commands.slice(k),
+    fairness: s.fairness.slice(k),
+    commandStarts: s.commandStarts.slice(k).map((i) => i - drop),
+    log: s.log.slice(drop),
+    cursor: s.cursor - drop,
   }
 }
 
@@ -123,8 +169,8 @@ export function fairnessForCurrent(s: Session) {
     // Only once the order has finished playing, so it never spoils a prediction.
     const lastEntry = (s.commandStarts[i + 1] ?? s.log.length) - 1
     if (lastEntry >= s.cursor) continue
-    const before = replay(s.config, s.seed, s.commands.slice(0, i))
-    return { command: cmd, ...compareFairness(before, cmd.side, cmd.qty) }
+    const f = s.fairness[i]
+    return f ? { command: cmd, ...f } : null
   }
   return null
 }

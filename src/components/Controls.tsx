@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ArrowDownRight, ArrowUpRight, Minus, Pause, Play, Plus, RotateCcw, StepBack, StepForward } from 'lucide-react'
+import { isScenario, type Speed } from '@/app/useController'
 import type { BookConfig } from '@/engine/orderBook'
 import type { Side } from '@/engine/types'
 import type { Dispatch, State } from '@/app/useController'
@@ -112,14 +113,24 @@ export function OrderForm({ config, dispatch, disabled }: { config: BookConfig; 
   )
 }
 
-export function Playback({ state, dispatch }: { state: State; dispatch: Dispatch }) {
-  const { session, playing, speed, prediction } = state
-  const total = session.log.length
-  const atEnd = session.cursor >= total
+/** Playback in one row: it runs by itself; pause to step through by hand. */
+export function Dock({ state, dispatch }: { state: State; dispatch: Dispatch }) {
+  const { session, playing, speed, prediction, mode } = state
+  const live = mode === 'live'
+  const atEnd = session.cursor >= session.log.length
+  const canGoOn = live || isScenario(mode) || !atEnd
   return (
-    <Group title="Playback">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Button size="icon" variant="quiet" aria-label="Step back" aria-keyshortcuts="ArrowLeft" title="Step back (←)" onClick={() => dispatch({ type: 'back' })} disabled={session.cursor === 0 || !!prediction}>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+      <div className="flex items-center gap-1.5">
+        <Button
+          size="icon"
+          variant="quiet"
+          aria-label="Step back"
+          aria-keyshortcuts="ArrowLeft"
+          title="Step back (←)"
+          onClick={() => dispatch({ type: 'back' })}
+          disabled={session.cursor === 0 || !!prediction}
+        >
           <StepBack className="size-4" aria-hidden />
         </Button>
         <Button
@@ -128,73 +139,50 @@ export function Playback({ state, dispatch }: { state: State; dispatch: Dispatch
           aria-keyshortcuts="P"
           title="Play / pause (P)"
           onClick={() => dispatch({ type: playing ? 'pause' : 'play' })}
-          disabled={!playing && (atEnd || !!prediction)}
+          disabled={!playing && (!canGoOn || !!prediction)}
         >
           {playing ? <Pause className="size-4" aria-hidden /> : <Play className="size-4" aria-hidden />}
           {playing ? 'Pause' : 'Play'}
         </Button>
-        <Button size="icon" variant="quiet" aria-label="Step forward" aria-keyshortcuts="ArrowRight" title="Step (→)" onClick={() => dispatch({ type: 'step' })} disabled={atEnd || !!prediction}>
+        <Button
+          size="icon"
+          variant="quiet"
+          aria-label="Step forward"
+          aria-keyshortcuts="ArrowRight"
+          title="Step (→)"
+          onClick={() => dispatch({ type: 'step' })}
+          disabled={!canGoOn || !!prediction}
+        >
           <StepForward className="size-4" aria-hidden />
         </Button>
         <Button size="icon" variant="ghost" aria-label="Reset" title="Reset" onClick={() => dispatch({ type: 'reset' })}>
           <RotateCcw className="size-4" aria-hidden />
         </Button>
       </div>
-      <div className="mt-2.5 flex flex-wrap items-center gap-3">
-        <Segmented<string>
-          size="sm"
-          label="Speed"
-          value={String(speed)}
-          onChange={(v) => dispatch({ type: 'speed', speed: Number(v) as 0.5 | 1 | 2 })}
-          options={[
-            { value: '0.5', label: '½×', aria: 'Half speed' },
-            { value: '1', label: '1×', aria: 'Normal speed' },
-            { value: '2', label: '2×', aria: 'Double speed' },
-          ]}
-        />
-        <span className="tnum text-[12.5px] text-faint" aria-live="off">
-          {total === 0 ? 'No steps yet' : `Step ${session.cursor} of ${total}`}
-        </span>
-      </div>
-    </Group>
-  )
-}
-
-export function Lenses({ state, dispatch }: { state: State; dispatch: Dispatch }) {
-  return (
-    <Group title="Ways to see it">
-      <div className="flex flex-col gap-3">
-        <div>
-          <div className="mb-1 text-[12px] text-muted" id="rule-label">Who trades first at a price</div>
-          <Segmented
-            label="Matching rule"
-            value={state.priority}
-            onChange={(priority) => dispatch({ type: 'priority', priority })}
-            options={[
-              { value: 'fifo', label: 'FIFO: oldest' },
-              { value: 'lifo', label: 'LIFO: newest', activeClass: 'bg-bad' },
-            ]}
-          />
-        </div>
-        <div>
-          <div className="mb-1 text-[12px] text-muted">Show each queue as</div>
-          <Segmented
-            label="Display"
-            value={state.skin}
-            onChange={(skin) => dispatch({ type: 'skin', skin })}
-            options={[
-              { value: 'chips', label: 'Order chips' },
-              { value: 'checkout', label: 'Checkout lines' },
-            ]}
-          />
-        </div>
+      <Segmented<string>
+        size="sm"
+        label="Speed"
+        value={String(speed)}
+        onChange={(v) => dispatch({ type: 'speed', speed: Number(v) as Speed })}
+        options={[
+          { value: '0.5', label: '½×', aria: 'Half speed' },
+          { value: '1', label: '1×', aria: 'Normal speed' },
+          { value: '2', label: '2×', aria: 'Double speed' },
+          { value: '4', label: '4×', aria: 'Four times speed' },
+        ]}
+      />
+      <span className="flex items-center gap-1.5 text-[12.5px] text-faint" aria-live="off">
+        {live && playing && <span className="size-2 animate-pulse rounded-full bg-good" aria-hidden />}
+        {live ? (playing ? 'Live: orders keep arriving' : 'Paused: step through by hand') : `Step ${session.cursor} of ${session.log.length}`}
+      </span>
+      <div className="ml-auto">
         <Switch
           checked={state.predict}
           onChange={(on) => dispatch({ type: 'predict', on })}
           label="Predict the fill"
-          hint="Pause each market order and guess who trades first."
+          hint="Pause before each trade and guess"
         />
       </div>
-    </Group>
+    </div>
   )
 }
