@@ -113,13 +113,16 @@ export function currentCommandIndex(s: Session): number {
 }
 
 /**
- * For the market order on screen (or the most recent one shown), what FIFO
+ * For the most recent market order that has finished playing, what FIFO
  * and LIFO would each have done with the exact same book.
  */
 export function fairnessForCurrent(s: Session) {
   for (let i = currentCommandIndex(s); i >= 0; i--) {
     const cmd = s.commands[i]
     if (cmd.type !== 'market') continue
+    // Only once the order has finished playing, so it never spoils a prediction.
+    const lastEntry = (s.commandStarts[i + 1] ?? s.log.length) - 1
+    if (lastEntry >= s.cursor) continue
     const before = replay(s.config, s.seed, s.commands.slice(0, i))
     return { command: cmd, ...compareFairness(before, cmd.side, cmd.qty) }
   }

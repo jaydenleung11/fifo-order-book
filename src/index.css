@@ -1,0 +1,100 @@
+@import "tailwindcss";
+@import "@fontsource-variable/schibsted-grotesk";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/600.css";
+
+/*
+  Tokens. A cool graphite ground (not pure black, not navy), one lightness
+  step per layer, and colour kept for the two sides of the book.
+  Bids are cyan, asks are amber: a blue/orange pair that stays apart for
+  the common forms of colour blindness. Side is never shown by colour alone:
+  every bid/ask also carries a glyph, a word, or a fill pattern.
+*/
+:root {
+  color-scheme: dark;
+  --ground: #0f1114;
+  --surface: #161a1f;
+  --raised: #1f242b;
+  --rule: #272d36;
+  --control: #39414c;
+  --ink: #eef1f4;
+  --muted: #aab2bd;
+  --faint: #8d96a3;
+  --bid: #56c6d4;
+  --bid-soft: #12313a;
+  --bid-ink: #9be3ec;
+  --ask: #f2a65e;
+  --ask-soft: #3a2614;
+  --ask-ink: #ffd2a6;
+  --flash: #ffffff;
+  --good: #7fd69b;
+  --bad: #f2848d;
+  --focus: #ffe58a;
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-rule: var(--rule);
+  --color-control: var(--control);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-bid: var(--bid);
+  --color-bid-soft: var(--bid-soft);
+  --color-bid-ink: var(--bid-ink);
+  --color-ask: var(--ask);
+  --color-ask-soft: var(--ask-soft);
+  --color-ask-ink: var(--ask-ink);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-focus: var(--focus);
+  --font-sans: "Schibsted Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+}
+
+html {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--ground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ask chips carry a hatched right edge, bid chips a solid left edge, so
+   the side reads without colour. */
+.hatch-ask-edge {
+  background-image: repeating-linear-gradient(-45deg, var(--ask) 0 2px, transparent 2px 5px);
+  background-size: 8px 100%;
+  background-repeat: no-repeat;
+  background-position: right center;
+}
+
+.hatch-legend {
+  background: repeating-linear-gradient(45deg, var(--ask) 0 2px, var(--ask-soft) 2px 4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

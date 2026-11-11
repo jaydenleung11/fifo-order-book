@@ -4,6 +4,7 @@ import { OrderBook, compareFairness } from './orderBook'
 import {
   createSession,
   currentBook,
+  fairnessForCurrent,
   pushCommand,
   resetSession,
   shownTrades,
@@ -187,6 +188,16 @@ describe('Session (event-log playback)', () => {
     const a = pushCommand(createSession(seed), cmd)
     const b = pushCommand(resetSession(a), cmd)
     expect(b.log.map((e) => e.event)).toEqual(a.log.map((e) => e.event))
+  })
+
+  it('only shows the fairness replay after the market order finishes', () => {
+    let s = pushCommand(createSession(seed), { type: 'market', side: 'buy', qty: 4, priority: 'fifo' })
+    s = stepForward(s)
+    expect(fairnessForCurrent(s)).toBeNull()
+    while (s.cursor < s.log.length) s = stepForward(s)
+    const f = fairnessForCurrent(s)!
+    expect(f.fifo.map((t) => t.makerId)).toEqual([1, 2])
+    expect(f.lifo.map((t) => t.makerId)).toEqual([2, 1])
   })
 
   it('refuses a market order with nothing to trade against', () => {
