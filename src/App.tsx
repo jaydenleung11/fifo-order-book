@@ -31,10 +31,16 @@ export default function App() {
   useKeyboard(state, dispatch)
 
   return (
-    <div className="mx-auto max-w-[1480px] px-4 pb-10 pt-5 sm:px-6">
+    <div className={cn('mx-auto max-w-[1480px] px-4 pb-10 pt-5 sm:px-6', state.prediction && 'pb-36')}>
+      <a
+        href="#book"
+        className="sr-only rounded-full bg-ink px-4 py-2 text-ground focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50"
+      >
+        Skip to the order book
+      </a>
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
         <div className="max-w-2xl">
-          <h1 className="text-[clamp(1.6rem,2.6vw,2.15rem)] font-bold leading-[1.05] tracking-[-0.02em]">
+          <h1 className="text-balance text-[clamp(1.6rem,2.6vw,2.15rem)] font-bold leading-[1.05] tracking-[-0.02em]">
             First in, first filled
           </h1>
           <p className="mt-1.5 text-[15px] leading-snug text-muted">
@@ -53,7 +59,7 @@ export default function App() {
             <ScenarioCaption state={state} dispatch={dispatch} />
           </div>
           <PredictBanner state={state} dispatch={dispatch} />
-          <div className="order-2 min-w-0">
+          <div id="book" tabIndex={-1} className="order-2 min-w-0 scroll-mt-4 outline-none">
           <Book
             book={book}
             entry={entry}

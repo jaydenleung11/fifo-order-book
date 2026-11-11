@@ -55,6 +55,8 @@
 }
 
 html {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   background: var(--ground);
   color: var(--ink);
   font-family: var(--font-sans);

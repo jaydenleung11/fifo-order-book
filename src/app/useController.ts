@@ -184,8 +184,33 @@ function reducer(state: State, action: Action): State {
 
 const BASE_MS = 900
 
+const MODES: Mode[] = ['free', ...SCENARIOS.map((s) => s.id)]
+
+/** The scenario lives in the URL hash (#sweep), so it can be linked to. */
+function initFromHash(): State {
+  const h = typeof window === 'undefined' ? '' : window.location.hash.slice(1)
+  return MODES.includes(h) ? { ...initialState, ...fresh(h) } : initialState
+}
+
 export function useController() {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  const [state, dispatch] = useReducer(reducer, undefined, initFromHash)
+
+  useEffect(() => {
+    const want = state.mode === 'free' ? '' : `#${state.mode}`
+    if (window.location.hash !== want) {
+      history.replaceState(null, '', want || window.location.pathname + window.location.search)
+    }
+  }, [state.mode])
+
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash.slice(1)
+      if (MODES.includes(h)) dispatch({ type: 'mode', mode: h })
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
   const { playing, speed, session, prediction } = state
 
   useEffect(() => {

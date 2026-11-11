@@ -67,6 +67,7 @@ export function OrderForm({ config, dispatch, disabled }: { config: BookConfig; 
           <label className="flex flex-col gap-1 text-[12px] text-muted">
             Price
             <select
+              name="price"
               value={shownPrice}
               onChange={(e) => setPrice(Number(e.target.value))}
               className="tnum h-9 cursor-pointer rounded-full bg-raised px-3 text-[14px] text-ink hover:bg-control"
@@ -87,6 +88,9 @@ export function OrderForm({ config, dispatch, disabled }: { config: BookConfig; 
             </Button>
             <input
               aria-labelledby="qty-label"
+              name="size"
+              type="text"
+              autoComplete="off"
               inputMode="numeric"
               value={qty}
               onChange={(e) => {
