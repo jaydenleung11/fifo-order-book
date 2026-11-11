@@ -1,0 +1,9 @@
+node_modules
+dist
+*.local
+.DS_Store
+# third-party material we read but do not redistribute
+design-repos/
+Project Instructions*.pdf
+.taste-skill/
+report/_build/
