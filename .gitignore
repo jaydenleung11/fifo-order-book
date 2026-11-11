@@ -7,3 +7,4 @@ design-repos/
 Project Instructions*.pdf
 .taste-skill/
 report/_build/
+*.tsbuildinfo
