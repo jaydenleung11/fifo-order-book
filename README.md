@@ -7,7 +7,8 @@ is FIFO, or price-time priority, which is how real exchanges match orders.
 Course project for NYU CSCI-UA.0102-060 Data Structures, Fall 2026, by
 Aarav Kyparlis (ak13728) and Jayden Leung (jal9756).
 
-Live site: to be added. Repository: to be added.
+Live site: <https://fifo-order-book.vercel.app>  
+Repository: <https://github.com/jaydenleung11/fifo-order-book>
 
 ## What it shows
 
@@ -41,17 +42,17 @@ npm test           # Vitest engine tests
 npm run build      # type-check + production build into dist/
 ```
 
-## Deploy (GitHub Pages)
+## Deploy
 
-1. Push this folder to a GitHub repository (for example `fifo-order-book`) on branch `main`.
-2. In the repo go to Settings → Pages → Build and deployment and set Source to **GitHub Actions**.
-3. Every push to `main` runs `.github/workflows/deploy.yml`, which tests, builds with
-   `BASE_PATH=/<repo-name>/`, and publishes `dist/`. The site appears at
-   `https://<user>.github.io/<repo-name>/`.
+**Vercel (live site).** The Vercel project is linked to this repository with the Vite preset
+(build `npm run build`, output `dist`, no `BASE_PATH`). Every push to `main` deploys to
+production; other branches get preview URLs.
 
-Nothing in the code hard-codes the repo name: `vite.config.ts` reads `BASE_PATH` (default `/`).
-For Vercel instead, import the repo and keep the defaults (build `npm run build`, output `dist`,
-no `BASE_PATH`).
+**GitHub Pages (manual fallback).** In the repo go to Settings → Pages → Build and deployment,
+set Source to **GitHub Actions**, then run the "Deploy to GitHub Pages" workflow from the
+Actions tab. It tests, builds with `BASE_PATH=/<repo-name>/`, and publishes `dist/` to
+`https://<user>.github.io/<repo-name>/`. Nothing in the code hard-codes the repo name:
+`vite.config.ts` reads `BASE_PATH` (default `/`).
 
 ## How it is built
 
