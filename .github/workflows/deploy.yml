@@ -1,8 +1,9 @@
 name: Deploy to GitHub Pages
 
+# The live site is hosted on Vercel (auto-deploys on push to main).
+# This workflow is a manual fallback: enable Pages (Source: GitHub Actions)
+# and run it from the Actions tab.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
