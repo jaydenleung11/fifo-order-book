@@ -231,11 +231,14 @@ export function LogoPlane({
   maxW,
   maxH,
   fade,
+  tag,
 }: {
   firm: Firm
   maxW: number
   maxH: number
   fade?: RefObject<number>
+  /** For very wide wordmarks, also print the firm's short tag large. */
+  tag?: boolean
 }) {
   const tex = useTexture(logoUrl(firm))
   useLayoutEffect(() => {
@@ -245,20 +248,32 @@ export function LogoPlane({
       tex.needsUpdate = true
     }
   }, [tex])
-  const [w, h] = useMemo(() => {
+  const [w, h, wide] = useMemo(() => {
     const img = tex.image as { width?: number; height?: number } | undefined
     const a = img?.width && img?.height ? img.width / img.height : 3
-    return a > maxW / maxH ? [maxW, maxW / a] : [maxH * a, maxH]
-  }, [tex, maxW, maxH])
+    // Long wordmarks (J.P. Morgan, Citadel, BofA) would shrink to a hairline:
+    // give them the full width, and the tag above does the reading.
+    if (tag && a > 7) return [maxW * 1.08, (maxW * 1.08) / a, true] as const
+    return a > maxW / maxH ? ([maxW, maxW / a, false] as const) : ([maxH * a, maxH, false] as const)
+  }, [tex, maxW, maxH, tag])
   const mat = useRef<THREE.MeshBasicMaterial>(null!)
   useFrame(() => {
     if (fade) mat.current.opacity = fade.current ?? 1
   })
-  return (
-    <mesh>
+  const logo = (
+    <mesh position-y={wide ? -maxH * 0.32 : 0}>
       <planeGeometry args={[w, h]} />
       <meshBasicMaterial ref={mat} map={tex} transparent alphaTest={0.02} toneMapped={false} depthWrite={false} />
     </mesh>
+  )
+  if (!wide) return logo
+  return (
+    <group>
+      <Text font={monoFont} position-y={maxH * 0.12} fontSize={maxH * 0.62} color={firm.color} anchorX="center" anchorY="middle">
+        {firm.tag}
+      </Text>
+      {logo}
+    </group>
   )
 }
 
@@ -298,7 +313,7 @@ export function Ticket({ firm, label, fade }: { firm: Firm | undefined; label: s
       {firm && (
         <group rotation-x={-Math.PI / 2} position={[0, top + 0.001, -0.05]}>
           <Suspense fallback={null}>
-            <LogoPlane firm={firm} maxW={TICKET_W * 0.88} maxH={0.3} fade={fade} />
+            <LogoPlane firm={firm} maxW={TICKET_W * 0.88} maxH={0.3} fade={fade} tag />
           </Suspense>
         </group>
       )}
@@ -307,7 +322,7 @@ export function Ticket({ firm, label, fade }: { firm: Firm | undefined; label: s
         font={monoFont}
         rotation-x={-Math.PI / 2}
         position={[0, top + 0.002, TICKET_D / 2 - 0.13]}
-        fontSize={label.length > 9 ? 0.1 : 0.118}
+        fontSize={label.length > 9 ? 0.12 : 0.145}
         color="#191c21"
         anchorX="center"
         anchorY="middle"

@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useReducedMotion } from 'motion/react'
 import * as THREE from 'three'
 import type { Trade } from '@/engine/types'
 import { INSTRUMENTS, type Instrument } from '@/app/instruments'
@@ -33,8 +34,6 @@ const PAL = {
   down: C.bad,
 }
 
-const REDUCED = () =>
-  typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 /* ------------------------------------------------------------- canvas utils */
 
@@ -479,12 +478,20 @@ function buildTicker(inst: Instrument, trades: Trade[]) {
 function Ticker({ inst, trades }: { inst: Instrument; trades: Trade[] }) {
   const tex = useMemo(() => buildTicker(inst, trades), [inst, trades])
   useEffect(() => () => tex.dispose(), [tex])
-  const reduce = useMemo(REDUCED, [])
+  const reduce = !!useReducedMotion()
   // Scroll at a constant speed in world units, whatever the text length.
   const speed = useMemo(() => tex.repeat.x * 0.06, [tex])
+  // Distance scrolled so far, in canvas pixels, so a new trade does not snap
+  // the ticker back to the start: the new texture carries on where it was.
+  const scrolled = useRef(0)
+  useLayoutEffect(() => {
+    const width = tex.image.width as number
+    tex.offset.x = (scrolled.current % width) / width
+  }, [tex])
   useFrame((_, dt) => {
     if (reduce) return
     tex.offset.x = (tex.offset.x + Math.min(dt, 0.1) * speed) % 1
+    scrolled.current = tex.offset.x * (tex.image.width as number)
   })
   return (
     <group position={[0, 0.42, -4.35]} rotation={[-0.32, 0, 0]}>

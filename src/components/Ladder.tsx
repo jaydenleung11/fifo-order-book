@@ -355,13 +355,15 @@ function QueueStrip({
             const firm = firmOf(o.trader)
             const focused = focus.orderId === o.id
             const joined = focus.joinedId === o.id
-            const pct = (o.qty / maxTotal) * 100
+            // Share of the room left after the 2px gaps, so the longest queue fits exactly.
+            const gaps = (level.orders.length - 1) * 2
+            const pct = `calc((100% - ${gaps}px) * ${o.qty / maxTotal})`
             return (
               <motion.li
                 key={o.id}
                 layout={reduce ? false : 'position'}
                 initial={reduce ? false : { opacity: 0, x: -toPrice * 18 }}
-                animate={{ opacity: o.qty === 0 ? 0.45 : 1, x: 0, width: `${pct}%` }}
+                animate={{ opacity: o.qty === 0 ? 0.45 : 1, x: 0, width: pct }}
                 exit={reduce ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, x: toPrice * 22, transition: { duration: 0.3 } }}
                 transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 360, damping: 32 }}
                 className={cn(
@@ -369,7 +371,7 @@ function QueueStrip({
                   i === 0 && 'shadow-[inset_0_0_0_1.5px_rgb(255_255_255/0.85)]',
                   joined && 'ring-2 ring-focus/80',
                 )}
-                style={{ width: `${pct}%`, backgroundColor: firm?.color ?? '#6b7480' }}
+                style={{ width: pct, backgroundColor: firm?.color ?? '#6b7480' }}
                 role="img"
                 aria-label={`#${o.id} ${o.trader}, ${units(inst, o.qty)}, arrived ${clock(o.time)}${i === 0 ? ', head' : ''}${
                   i === n - 1 && i !== 0 ? ', tail' : ''
@@ -435,7 +437,7 @@ function TimeAndSales({ trades, reduce }: { trades: Trade[]; reduce: boolean }) 
   return (
     <section
       aria-labelledby="tns-title"
-      className="flex min-w-0 flex-col rounded-2xl bg-surface p-3 min-[900px]:w-[17rem] min-[900px]:shrink-0"
+      className="flex min-w-0 flex-col rounded-2xl bg-surface p-3 min-[900px]:w-[18.5rem] min-[900px]:shrink-0"
     >
       <div className="mb-2 flex items-baseline justify-between px-1">
         <h2 id="tns-title" className="text-[15px] font-semibold">
@@ -444,7 +446,7 @@ function TimeAndSales({ trades, reduce }: { trades: Trade[]; reduce: boolean }) 
         <span className="tnum text-[11.5px] text-faint">newest first</span>
       </div>
       <div
-        className="tnum grid grid-cols-[3.6rem_1fr_2rem_auto] gap-2 border-b border-rule px-1 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-faint"
+        className="tnum grid grid-cols-[3.6rem_minmax(0,1fr)_1.6rem_auto] gap-2 border-b border-rule px-1 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-faint"
         aria-hidden
       >
         <span>Time</span>
@@ -470,11 +472,11 @@ function TimeAndSales({ trades, reduce }: { trades: Trade[]; reduce: boolean }) 
                   aria-label={`${tradeTime(t)}: market ${buy ? 'buy' : 'sell'} ${units(inst, t.qty)} at ${inst.px(t.price)}, from ${t.makerTrader}`}
                 >
                   <span className="text-faint">{tradeTime(t)}</span>
-                  <span className={cn('text-right font-semibold', buy ? 'text-bid' : 'text-ask')}>
+                  <span className={cn('whitespace-nowrap text-right font-semibold', buy ? 'text-bid' : 'text-ask')}>
                     {buy ? '▲' : '▼'} {inst.px(t.price)}
                   </span>
                   <span className="text-right text-ink">{t.qty}</span>
-                  <FirmLogo name={t.makerTrader} className="h-[16px] max-w-[4.5rem]" />
+                  <FirmLogo name={t.makerTrader} className="h-[16px] max-w-[3.75rem]" />
                 </motion.li>
               )
             })}
