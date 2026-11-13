@@ -23,10 +23,13 @@ export const DEFAULT_CONFIG: BookConfig = {
   askPrices: [101, 102, 103, 104, 105],
 }
 
+/**
+ * Names on the simulated orders: real firms that trade on real exchanges.
+ * The orders are made up; these firms did not place them.
+ */
 const TRADERS = [
-  'Ana', 'Ben', 'Cleo', 'Dev', 'Eli', 'Fay', 'Gus', 'Hana', 'Ivo', 'Jun',
-  'Kai', 'Lia', 'Mo', 'Noor', 'Oz', 'Pia', 'Quin', 'Rae', 'Sol', 'Tess',
-  'Uma', 'Vic', 'Wen', 'Xia', 'Yuri', 'Zoe',
+  'Goldman Sachs', 'J.P. Morgan', 'Citadel Securities', 'Morgan Stanley', 'Jane Street', 'Bank of America',
+  'Barclays', 'UBS', 'Virtu Financial', 'Citi', 'HSBC', 'Deutsche Bank',
 ]
 
 export function traderFor(id: number): string {

@@ -1,4 +1,5 @@
 import type { LogEntry, Priority, Side } from '@/engine/types'
+import { INSTRUMENTS, type Instrument } from './instruments'
 
 export type Program = 'limit' | 'market'
 
@@ -32,20 +33,22 @@ export interface Explanation {
   say: string
 }
 
-export function explain(entry: LogEntry, priority: Priority): Explanation {
+export function explain(entry: LogEntry, priority: Priority, inst: Instrument = INSTRUMENTS[0]): Explanation {
   const e = entry.event
+  const px = inst.px
+  const u = (n: number) => inst.unit[n === 1 ? 0 : 1]
   switch (e.kind) {
     case 'enqueue': {
       const ahead = e.position
       return {
         program: 'limit',
         line: 2,
-        op: `${lvl(e.order.side)}[${e.order.price}].enqueue(#${e.order.id})`,
+        op: `${lvl(e.order.side)}[${px(e.order.price)}].enqueue(#${e.order.id})`,
         cost: 'O(1)',
         say:
           ahead === 0
-            ? `#${e.order.id} (${e.order.trader}) is first in line at ${e.order.price}: it is the head.`
-            : `#${e.order.id} (${e.order.trader}) joins the tail at ${e.order.price}, behind ${ahead} order${ahead === 1 ? '' : 's'}.`,
+            ? `#${e.order.id} (${e.order.trader}) is first in line at ${px(e.order.price)}: it is the head.`
+            : `#${e.order.id} (${e.order.trader}) joins the tail at ${px(e.order.price)}, behind ${ahead} order${ahead === 1 ? '' : 's'}.`,
       }
     }
     case 'market-arrive':
@@ -53,14 +56,14 @@ export function explain(entry: LogEntry, priority: Priority): Explanation {
         program: 'market',
         line: 0,
         op: `market${e.taker.side === 'buy' ? 'Buy' : 'Sell'}(qty: ${e.taker.qty})`,
-        say: `A market ${e.taker.side} for ${e.taker.qty} arrives. It trades with whoever is waiting at the best price.`,
+        say: `${e.taker.trader} sends a market ${e.taker.side} for ${e.taker.qty} ${u(e.taker.qty)}. It trades with whoever is waiting at the best price.`,
       }
     case 'visit-level':
       return {
         program: 'market',
         line: 1,
-        op: `level ← ${lvl(e.makerSide)}[${e.price}]`,
-        say: `Best ${e.makerSide === 'sell' ? 'ask' : 'bid'} is ${e.price}, with ${e.queueLength} order${e.queueLength === 1 ? '' : 's'} in line.`,
+        op: `level ← ${lvl(e.makerSide)}[${px(e.price)}]`,
+        say: `Best ${e.makerSide === 'sell' ? 'ask' : 'bid'} is ${px(e.price)}, with ${e.queueLength} order${e.queueLength === 1 ? '' : 's'} in line.`,
       }
     case 'peek':
       return {
@@ -78,11 +81,11 @@ export function explain(entry: LogEntry, priority: Priority): Explanation {
       return {
         program: 'market',
         line: 5,
-        op: `trade(#${t.makerId}, ${t.qty} @ ${t.price})`,
+        op: `trade(#${t.makerId}, ${t.qty} @ ${px(t.price)})`,
         say:
           e.makerRemaining > 0
-            ? `Partial fill: ${t.qty} trade at ${t.price}. #${t.makerId} keeps ${e.makerRemaining} and stays at the ${e.end}.`
-            : `${t.qty} trade at ${t.price}. #${t.makerId} is now fully filled.`,
+            ? `Partial fill: ${t.qty} ${u(t.qty)} trade at ${px(t.price)}. #${t.makerId} keeps ${e.makerRemaining} and stays at the ${e.end}.`
+            : `${t.qty} ${u(t.qty)} trade at ${px(t.price)}. #${t.makerId} (${t.makerTrader}) is now fully filled.`,
       }
     }
     case 'dequeue': {
@@ -97,15 +100,15 @@ export function explain(entry: LogEntry, priority: Priority): Explanation {
         cost: 'O(1)',
         say: next
           ? `#${e.order.id} leaves the queue. #${next.id} is the new ${e.end}.`
-          : `#${e.order.id} leaves the queue. The ${e.price} level is now empty.`,
+          : `#${e.order.id} leaves the queue. The ${px(e.price)} level is now empty.`,
       }
     }
     case 'level-empty':
       return {
         program: 'market',
         line: 2,
-        op: `${lvl(e.makerSide)}[${e.price}].isEmpty() → true`,
-        say: `Nothing left at ${e.price}. ${e.taker.remaining > 0 ? 'Move to the next best price.' : ''}`.trim(),
+        op: `${lvl(e.makerSide)}[${px(e.price)}].isEmpty() → true`,
+        say: `Nothing left at ${px(e.price)}. ${e.taker.remaining > 0 ? 'Move to the next best price.' : ''}`.trim(),
       }
     case 'market-done':
       return {

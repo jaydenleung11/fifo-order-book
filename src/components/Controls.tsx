@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useInstrument } from '@/app/instruments'
 import { ArrowDownRight, ArrowUpRight, Minus, Pause, Play, Plus, RotateCcw, StepBack, StepForward } from 'lucide-react'
 import { isScenario, type Speed } from '@/app/useController'
 import type { BookConfig } from '@/engine/orderBook'
@@ -23,6 +24,7 @@ export function OrderForm({ config, dispatch, disabled }: { config: BookConfig; 
   const [side, setSide] = useState<Side>('buy')
   const [type, setType] = useState<'limit' | 'market'>('limit')
   const [qty, setQty] = useState(3)
+  const inst = useInstrument()
   const prices = side === 'buy' ? config.bidPrices : config.askPrices
   const [price, setPrice] = useState<number>(prices[0])
   const shownPrice = prices.includes(price) ? price : prices[0]
@@ -75,7 +77,7 @@ export function OrderForm({ config, dispatch, disabled }: { config: BookConfig; 
             >
               {prices.map((p) => (
                 <option key={p} value={p}>
-                  {p}
+                  {inst.px(p)}
                 </option>
               ))}
             </select>

@@ -20,7 +20,7 @@ const L = (side: 'buy' | 'sell', price: number, qty: number, trader?: string): C
   trader,
 })
 
-/** A lived-in book for free play. Names follow arrival order (Ana is #1). */
+/** A lived-in book for free play. Firms follow arrival order. */
 export const FREE_PLAY_SEED: Command[] = [
   L('sell', 101, 4),
   L('buy', 99, 3),
@@ -40,28 +40,34 @@ export const FREE_PLAY_SEED: Command[] = [
   L('buy', 96, 4),
 ]
 
+const TAKER = 'Citadel Securities'
+
+/**
+ * Captions are templates: {p:101} is shown as the instrument's quote for
+ * price 101 and {u} as its unit, so they read right for every instrument.
+ */
 export const SCENARIOS: Scenario[] = [
   {
     id: 'same-price',
     title: 'Same price: who goes first?',
     seed: [
-      L('sell', 101, 3, 'Ana'),
-      L('buy', 99, 4, 'Cleo'),
-      L('sell', 102, 4, 'Dev'),
-      L('buy', 98, 5, 'Eli'),
+      L('sell', 101, 3, 'Goldman Sachs'),
+      L('buy', 99, 4, 'Morgan Stanley'),
+      L('sell', 102, 4, 'Barclays'),
+      L('buy', 98, 5, 'UBS'),
     ],
     steps: [
-      { caption: 'Ana is waiting to sell 3 shares at 101. She is alone, so she is both head and tail.' },
+      { caption: 'Goldman Sachs is waiting to sell 3 {u} at {p:101}. It is alone, so it is both head and tail.' },
       {
-        caption: 'Ben offers the same price a moment later. Same price, so he joins the tail, behind Ana.',
-        command: L('sell', 101, 3, 'Ben'),
+        caption: 'J.P. Morgan offers the same price a moment later. Same price, so it joins the tail, behind Goldman.',
+        command: L('sell', 101, 3, 'J.P. Morgan'),
       },
       {
-        caption: 'A buyer wants 3 shares now. The price ties, so the queue decides: under FIFO the head (Ana) sells first.',
-        command: { type: 'market', side: 'buy', qty: 3, priority: 'fifo', trader: 'Buyer' },
+        caption: `${TAKER} wants 3 {u} now. The price ties, so the queue decides: under FIFO the head (Goldman) sells first.`,
+        command: { type: 'market', side: 'buy', qty: 3, priority: 'fifo', trader: TAKER },
       },
       {
-        caption: 'Now switch the rule to LIFO and replay this scenario: Ben, the newest, jumps ahead of Ana. That is why exchanges use FIFO.',
+        caption: 'Now switch the rule to LIFO and replay: J.P. Morgan, the newest, jumps ahead of Goldman. That is why exchanges use FIFO.',
       },
     ],
   },
@@ -69,20 +75,20 @@ export const SCENARIOS: Scenario[] = [
     id: 'partial',
     title: 'Partial fill',
     seed: [
-      L('sell', 101, 6, 'Cleo'),
-      L('sell', 101, 2, 'Dev'),
-      L('sell', 102, 4, 'Eli'),
-      L('buy', 99, 5, 'Fay'),
+      L('sell', 101, 6, 'Morgan Stanley'),
+      L('sell', 101, 2, 'Jane Street'),
+      L('sell', 102, 4, 'UBS'),
+      L('buy', 99, 5, 'HSBC'),
     ],
     steps: [
-      { caption: 'Cleo is at the head with 6 shares. Dev waits behind her with 2.' },
+      { caption: 'Morgan Stanley is at the head with 6 {u}. Jane Street waits behind it with 2.' },
       {
-        caption: 'A buyer takes 4. Cleo had more than enough, so her chip shrinks to 2 and she keeps her place at the head.',
-        command: { type: 'market', side: 'buy', qty: 4, priority: 'fifo', trader: 'Buyer' },
+        caption: `${TAKER} buys 4. Morgan Stanley had more than enough, so its stack shrinks to 2 and it keeps its place at the head.`,
+        command: { type: 'market', side: 'buy', qty: 4, priority: 'fifo', trader: TAKER },
       },
       {
-        caption: 'Next buyer takes 3: Cleo’s last 2 go first, then 1 from Dev, who becomes the head.',
-        command: { type: 'market', side: 'buy', qty: 3, priority: 'fifo', trader: 'Buyer' },
+        caption: 'The next buy is for 3: Morgan Stanley’s last 2 go first, then 1 from Jane Street, which becomes the head.',
+        command: { type: 'market', side: 'buy', qty: 3, priority: 'fifo', trader: TAKER },
       },
     ],
   },
@@ -90,22 +96,22 @@ export const SCENARIOS: Scenario[] = [
     id: 'sweep',
     title: 'Sweeping levels',
     seed: [
-      L('sell', 102, 4, 'Gus'),
-      L('sell', 101, 2, 'Hana'),
-      L('sell', 101, 3, 'Ivo'),
-      L('sell', 103, 5, 'Jun'),
-      L('buy', 99, 4, 'Kai'),
+      L('sell', 102, 4, 'Deutsche Bank'),
+      L('sell', 101, 2, 'Bank of America'),
+      L('sell', 101, 3, 'Citi'),
+      L('sell', 103, 5, 'Barclays'),
+      L('buy', 99, 4, 'Virtu Financial'),
     ],
     steps: [
       {
-        caption: 'Gus arrived first, but at 102. Hana and Ivo came later at a better price, 101.',
+        caption: 'Deutsche Bank arrived first, but at {p:102}. Bank of America and Citi came later at a better price, {p:101}.',
       },
       {
-        caption: 'A market buy for 8: the best price comes first, so the 101 queue empties head-first before 102 is touched.',
-        command: { type: 'market', side: 'buy', qty: 8, priority: 'fifo', trader: 'Buyer' },
+        caption: `${TAKER} buys 8 at market: the best price comes first, so the {p:101} queue empties head-first before {p:102} is touched.`,
+        command: { type: 'market', side: 'buy', qty: 8, priority: 'fifo', trader: TAKER },
       },
       {
-        caption: 'Price first, then time. Gus waited longest overall, yet he traded last, because his price was worse.',
+        caption: 'Price first, then time. Deutsche Bank waited longest overall, yet it traded last, because its price was worse.',
       },
     ],
   },

@@ -2,9 +2,12 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import type { Trade } from '@/engine/types'
 import { cn } from '@/lib/utils'
+import { useInstrument } from '@/app/instruments'
+import { FirmLogo } from './FirmLogo'
 
 export function TradeTape({ trades }: { trades: Trade[] }) {
   const rows = [...trades].reverse()
+  const inst = useInstrument()
   return (
     <section aria-labelledby="tape-title" className="rounded-2xl bg-surface p-4">
       <div className="flex items-baseline justify-between">
@@ -28,20 +31,21 @@ export function TradeTape({ trades }: { trades: Trade[] }) {
                   initial={{ opacity: 0, backgroundColor: 'rgb(255 255 255 / 0.14)' }}
                   animate={{ opacity: 1, backgroundColor: 'rgb(255 255 255 / 0)' }}
                   transition={{ duration: 0.7 }}
-                  className="tnum grid grid-cols-[2rem_3.75rem_1fr_auto] items-center gap-2 rounded-md border-b border-rule px-1 py-1.5 last:border-0"
+                  className="tnum grid grid-cols-[2rem_3.5rem_1fr_auto] items-center gap-2 rounded-md border-b border-rule px-1 py-1.5 last:border-0"
                 >
                   <span className="text-faint">{t.id}</span>
                   <span className={cn('flex items-center gap-0.5 font-semibold', buy ? 'text-bid' : 'text-ask')}>
                     <Icon className="size-3.5" aria-hidden />
                     {buy ? 'Buy' : 'Sell'}
                   </span>
-                  <span className="truncate text-muted">
-                    filled <span className="text-ink">#{t.makerId}</span> {t.makerTrader}
+                  <span className="flex min-w-0 items-center gap-1.5 text-muted">
+                    <span className="text-ink">#{t.makerId}</span>
+                    <FirmLogo name={t.makerTrader} className="h-[18px] min-w-0" />
                   </span>
                   <span className="text-right">
                     <span className="font-semibold text-ink">{t.qty}</span>
                     <span className="text-faint"> @ </span>
-                    {t.price}
+                    {inst.px(t.price)}
                   </span>
                 </motion.li>
               )

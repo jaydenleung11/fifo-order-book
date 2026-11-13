@@ -1,4 +1,6 @@
 import { useRef } from 'react'
+import { units, useInstrument } from '@/app/instruments'
+import { FirmLogo } from './FirmLogo'
 import { AnimatePresence, motion } from 'motion/react'
 import { Pin, X } from 'lucide-react'
 import type { BookSnapshot, LogEntry, Order, Priority, Side } from '@/engine/types'
@@ -61,6 +63,7 @@ export function QueueDiagram({
   onUnpin: () => void
 }) {
   // Follow the action; remember the last lane so the diagram never goes blank.
+  const inst = useInstrument()
   const last = useRef<LaneId>({ side: 'sell', price: book.asks[0].price })
   const live = activeLane(entry)
   if (live) last.current = live
@@ -71,7 +74,7 @@ export function QueueDiagram({
   const op = opFor(entry, lane, priority)
   const focus = focusOf(entry)
   const joined = entry?.event.kind === 'enqueue' ? entry.event.order.id : null
-  const name = `${lane.side === 'buy' ? 'bids' : 'asks'}[${lane.price}]`
+  const name = `${lane.side === 'buy' ? 'bids' : 'asks'}[${inst.px(lane.price)}]`
   const total = orders.reduce((n, o) => n + o.qty, 0)
   const maxQty = Math.max(8, ...orders.map((o) => o.qty))
 
@@ -90,7 +93,7 @@ export function QueueDiagram({
           {name}
         </code>
         <span className="tnum text-[12.5px] text-faint">
-          {orders.length} node{orders.length === 1 ? '' : 's'} · {total} shares
+          {orders.length} node{orders.length === 1 ? '' : 's'} · {units(inst, total)}
         </span>
         {pinned ? (
           <button
@@ -209,7 +212,9 @@ function Node({
             <span className="font-mono text-[13px] font-semibold text-ink">#{order.id}</span>
             <span className="tnum text-[12px] text-muted">{order.qty}</span>
           </div>
-          <div className="truncate text-[11.5px] text-faint">{order.trader}</div>
+          <div className="mt-0.5 flex h-[18px] min-w-0">
+            <FirmLogo name={order.trader} className="h-full min-w-0" />
+          </div>
           <div className="mt-1.5 h-1.5 rounded-full bg-ground">
             <motion.div
               className={cn('h-full rounded-full', bid ? 'bg-bid' : 'bg-ask')}

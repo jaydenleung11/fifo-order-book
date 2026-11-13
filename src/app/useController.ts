@@ -15,7 +15,7 @@ import { FREE_PLAY_SEED, SCENARIOS } from './scenarios'
 import { nextOrder } from './simulate'
 
 export type Skin = 'chips' | 'checkout'
-export type View = '3d' | 'flat'
+export type View = '3d' | 'flat' | 'ladder'
 export type Speed = 0.5 | 1 | 2 | 4
 /** live: endless simulated order flow. free: build your own. */
 export type Mode = 'live' | 'free' | (typeof SCENARIOS)[number]['id']

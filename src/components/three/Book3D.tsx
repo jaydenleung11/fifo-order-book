@@ -1,13 +1,17 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Billboard, ContactShadows, Edges, Html, OrbitControls, RoundedBox, Text } from '@react-three/drei'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Billboard, ContactShadows, Edges, Html, OrbitControls, Text } from '@react-three/drei'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from 'motion/react'
 import * as THREE from 'three'
-import monoFont from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff?url'
-import type { BookSnapshot, LogEntry, Order, Side, Taker } from '@/engine/types'
+import type { BookSnapshot, LogEntry, Order, Side, Taker, Trade } from '@/engine/types'
 import type { Prediction } from '@/app/useController'
+import { units, type Instrument } from '@/app/instruments'
+import { firmOf, logoUrl, type Firm } from '@/app/firms'
 import { focusOf } from '@/components/Book'
 import { clock } from '@/lib/utils'
+import { C, D, W, monoFont, sideColor } from './theme'
+import { LogoPlane, Stack, TRAY_H, Ticket, brandColor, stackHeight } from './Stack'
+import { TradingFloor } from './TradingFloor'
 
 /* ------------------------------------------------------------------ layout
 
@@ -18,34 +22,22 @@ import { clock } from '@/lib/utils'
         tail ... head | 99  ·  101 | head ... tail      <- best prices (front)
         tail ... head | 98  ·  102 | head ... tail
         ...
+
+   Each order is a tray (side colour) holding the instrument itself: share
+   tiles, bond papers, gold bars or oil drums, with the firm's trade ticket
+   on top.
 */
 
-const C = {
-  bid: '#56c6d4',
-  ask: '#f2a65e',
-  focus: '#ffe58a',
-  good: '#7fd69b',
-  bad: '#f2848d',
-  ground: '#0f1114',
-  lane: '#1b2027',
-  ink: '#eef1f4',
-  muted: '#aab2bd',
-  faint: '#6f7884',
-}
 const ROW = 1.45
 const HEAD_X = 1.95
 const SLOT = 1.0
 const MAX_SHOWN = 6
-const W = 0.8
-const D = 0.92
 const FRONT_Z = 2 * ROW
 const ARRIVE: [number, number, number] = [0, 0.55, FRONT_Z + 1.55]
 
 const sign = (side: Side) => (side === 'buy' ? -1 : 1)
 const rowZ = (i: number) => (2 - i) * ROW
 const slotX = (side: Side, k: number) => sign(side) * (HEAD_X + k * SLOT)
-const heightOf = (qty: number) => 0.2 + Math.min(qty, 20) * 0.075
-const sideColor = (side: Side) => (side === 'buy' ? C.bid : C.ask)
 const damp = THREE.MathUtils.damp
 
 export interface LaneId {
@@ -56,6 +48,8 @@ export interface LaneId {
 interface Props {
   book: BookSnapshot
   entry: LogEntry | null
+  inst: Instrument
+  trades: Trade[]
   prediction: Prediction | null
   onGuess: (id: number) => void
   lane: LaneId | null
@@ -67,17 +61,17 @@ export default function Book3D(props: Props) {
     <Canvas
       shadows
       dpr={[1, 2]}
-      camera={{ position: [0, 8, 12], fov: 36, near: 0.1, far: 80 }}
+      camera={{ position: [0, 8, 12], fov: 36, near: 0.1, far: 90 }}
       aria-hidden
       style={{ touchAction: 'pan-y' }}
     >
       <color attach="background" args={[C.ground]} />
-      <fog attach="fog" args={[C.ground, 20, 38]} />
-      <ambientLight intensity={0.5} />
-      <hemisphereLight args={['#c8d6e5', '#0b0d10', 0.45]} />
+      <fog attach="fog" args={[C.ground, 24, 50]} />
+      <ambientLight intensity={0.35} />
+      <hemisphereLight args={['#c8d6e5', '#0b0d10', 0.35]} />
       <directionalLight
         position={[3, 11, 7]}
-        intensity={1.5}
+        intensity={1.4}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-12}
@@ -86,30 +80,62 @@ export default function Book3D(props: Props) {
         shadow-camera-bottom={-8}
       />
       <Rig />
+      <TradingFloor inst={props.inst} trades={props.trades} />
       <Scene {...props} />
     </Canvas>
   )
 }
 
-/** Fit the whole book to the canvas width; the viewer can then orbit a little. */
+/* ------------------------------------------------------------------ camera */
+
+const TARGET = new THREE.Vector3(0, 0.4, 0.2)
+const ELEV = THREE.MathUtils.degToRad(42)
+/** Points that must be on screen: the book's corners and the screens behind it. */
+const FIT = [
+  [-9.2, 0, 5.4],
+  [9.2, 0, 5.4],
+  [-9.2, 0, -3.6],
+  [9.2, 0, -3.6],
+  [-5, 3, -5.2],
+  [5, 3, -5.2],
+  [0, 3, -5.6],
+].map(([x, y, z]) => new THREE.Vector3(x, y, z))
+
+/** Fit the whole book (and the wall of screens behind it) to the canvas; the viewer can then orbit a little. */
 function Rig() {
-  const { camera, size } = useThree()
+  const { camera, size, scene } = useThree()
   const coarse = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches, [])
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
-    const aspect = size.width / Math.max(1, size.height)
-    const halfV = THREE.MathUtils.degToRad(cam.fov / 2)
-    const needW = 9.3 / (Math.tan(halfV) * aspect)
-    const needH = 4.4 / Math.tan(halfV)
-    const dist = THREE.MathUtils.clamp(Math.max(needW, needH), 9, 34)
-    const elev = THREE.MathUtils.degToRad(47)
-    cam.position.set(0, Math.sin(elev) * dist, Math.cos(elev) * dist + 1.5)
-    cam.lookAt(0, 0, 1.5)
+    cam.aspect = size.width / Math.max(1, size.height)
     cam.updateProjectionMatrix()
-  }, [camera, size.width, size.height])
+    const dir = new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV))
+    const v = new THREE.Vector3()
+    let dist = 44
+    for (let d = 8; d <= 44; d += 0.25) {
+      cam.position.copy(TARGET).addScaledVector(dir, d)
+      cam.lookAt(TARGET)
+      cam.updateMatrixWorld()
+      const ok = FIT.every((p) => {
+        v.copy(p).project(cam)
+        return Math.abs(v.x) <= 0.97 && Math.abs(v.y) <= 0.96 && v.z < 1
+      })
+      if (ok) {
+        dist = d
+        break
+      }
+    }
+    cam.position.copy(TARGET).addScaledVector(dir, dist)
+    cam.lookAt(TARGET)
+    cam.updateProjectionMatrix()
+    if (scene.fog instanceof THREE.Fog) {
+      scene.fog.near = dist + 4
+      scene.fog.far = dist + 30
+    }
+  }, [camera, scene, size.width, size.height])
   return (
     <OrbitControls
-      target={[0, 0, 1.5]}
+      target={TARGET.toArray() as [number, number, number]}
       enablePan={false}
       enableZoom={false}
       enableRotate={!coarse}
@@ -122,7 +148,7 @@ function Rig() {
   )
 }
 
-function Scene({ book, entry, prediction, onGuess, lane, onLane }: Props) {
+function Scene({ book, entry, inst, prediction, onGuess, lane, onLane }: Props) {
   const reduce = !!useReducedMotion()
   const focus = focusOf(entry)
   const ev = entry?.event
@@ -159,6 +185,7 @@ function Scene({ book, entry, prediction, onGuess, lane, onLane }: Props) {
                 row={i}
                 price={level.price}
                 orders={level.orders}
+                inst={inst}
                 best={(side === 'buy' ? bestBid : bestAsk) === level.price}
                 highlight={isPredict ? 'predict' : isActive ? 'active' : isPinned ? 'pinned' : null}
                 entry={entry}
@@ -174,7 +201,7 @@ function Scene({ book, entry, prediction, onGuess, lane, onLane }: Props) {
       <Legend />
       <Gone entry={entry} book={book} reduce={reduce} />
       <TakerToken entry={entry} book={book} reduce={reduce} />
-      <TradeBurst entry={entry} book={book} reduce={reduce} />
+      <TradeBurst entry={entry} book={book} inst={inst} reduce={reduce} />
       <ContactShadows position={[0, 0.002, 0.5]} scale={[24, 12]} opacity={0.45} blur={2.2} far={3} frames={reduce ? 1 : Infinity} />
     </group>
   )
@@ -185,9 +212,10 @@ function Scene({ book, entry, prediction, onGuess, lane, onLane }: Props) {
 function Floor() {
   return (
     <group>
+      {/* dark, faintly glossy trading-floor tiles */}
       <mesh rotation-x={-Math.PI / 2} position={[0, -0.01, 0.6]} receiveShadow>
         <planeGeometry args={[40, 24]} />
-        <meshStandardMaterial color="#12161b" roughness={1} />
+        <meshStandardMaterial color="#0f1217" roughness={0.62} metalness={0.25} />
       </mesh>
       {/* the aisle where market orders walk */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.001, 0.6]}>
@@ -257,11 +285,16 @@ function FlatText({
 
 type Highlight = 'active' | 'pinned' | 'predict' | null
 
+/** Room for a price label between the aisle line and the head tray. */
+const LABEL_X = 0.8
+const LABEL_SPAN = 1.22
+
 function Lane({
   side,
   row,
   price,
   orders,
+  inst,
   best,
   highlight,
   entry,
@@ -274,6 +307,7 @@ function Lane({
   row: number
   price: number
   orders: Order[]
+  inst: Instrument
   best: boolean
   highlight: Highlight
   entry: LogEntry | null
@@ -299,6 +333,9 @@ function Lane({
   const tint = highlight === 'predict' ? C.focus : sideColor(side)
   const n = orders.length
   const tailK = Math.min(n, MAX_SHOWN) - 1
+  const quote = inst.px(price)
+  // Monospace glyphs are ~0.6em wide: shrink long quotes so they fit the aisle gap.
+  const priceSize = Math.min(best ? 0.42 : 0.34, LABEL_SPAN / (Math.max(quote.length, 3) * 0.6)) * (best ? 1 : 0.88)
 
   return (
     <group>
@@ -318,20 +355,24 @@ function Lane({
       </mesh>
 
       {/* price label in the middle aisle */}
-      <FlatText position={[s * 0.72, 0.004, z]} size={best ? 0.46 : 0.38} color={best ? sideColor(side) : C.muted}>
-        {String(price)}
+      <FlatText position={[s * LABEL_X, 0.004, z]} size={priceSize} color={best ? sideColor(side) : C.muted}>
+        {quote}
       </FlatText>
 
       {/* HEAD and TAIL marks on the floor in front of the queue */}
       {n > 0 && (
-        <FlatText position={[slotX(side, 0), 0.004, z + D / 2 + 0.2]} size={0.15} color={highlight ? C.ink : C.faint}>
-          HEAD
-        </FlatText>
+        <Billboard position={[slotX(side, 0), stackHeight(inst.look, orders[0].qty) + 0.42, z]}>
+          <Text font={monoFont} fontSize={0.19} color={highlight ? C.ink : C.muted} outlineWidth={0.02} outlineColor={C.ground}>
+            HEAD
+          </Text>
+        </Billboard>
       )}
       {n > 1 && hidden === 0 && (
-        <FlatText position={[slotX(side, tailK), 0.004, z + D / 2 + 0.2]} size={0.15} color={highlight ? C.ink : C.faint}>
-          TAIL
-        </FlatText>
+        <Billboard position={[slotX(side, tailK), stackHeight(inst.look, orders[tailK].qty) + 0.42, z]}>
+          <Text font={monoFont} fontSize={0.19} color={highlight ? C.ink : C.faint} outlineWidth={0.02} outlineColor={C.ground}>
+            TAIL
+          </Text>
+        </Billboard>
       )}
 
       {/* where the next order would join */}
@@ -356,6 +397,7 @@ function Lane({
             key={o.id}
             order={o}
             side={side}
+            inst={inst}
             x={slotX(side, k)}
             z={z}
             state={state}
@@ -381,6 +423,7 @@ type BlockState = 'idle' | 'peek' | 'fill' | 'joined' | 'right' | 'wrong'
 function Block({
   order,
   side,
+  inst,
   x,
   z,
   state,
@@ -390,6 +433,7 @@ function Block({
 }: {
   order: Order
   side: Side
+  inst: Instrument
   x: number
   z: number
   state: BlockState
@@ -398,11 +442,12 @@ function Block({
   onClick: () => void
 }) {
   const group = useRef<THREE.Group>(null!)
-  const body = useRef<THREE.Mesh>(null!)
-  const top = useRef<THREE.Group>(null!)
-  const front = useRef<THREE.Group>(null!)
-  const mat = useRef<THREE.MeshStandardMaterial>(null!)
-  const h = heightOf(order.qty)
+  const ticket = useRef<THREE.Group>(null!)
+  const hit = useRef<THREE.Mesh>(null!)
+  const emissive = useRef(0)
+  const firm = firmOf(order.trader)
+  const brand = brandColor(firm?.color)
+  const h = stackHeight(inst.look, order.qty)
   // New orders drop in from above (at the tail, where they belong).
   const cur = useRef({ x, z, y: reduce ? 0 : 3.4, h })
   const [hover, setHover] = useState(false)
@@ -417,28 +462,35 @@ function Block({
     c.y = damp(c.y, 0, reduce ? 1e3 : 6, dt)
     c.h = damp(c.h, h, reduce ? 1e3 : 6, dt)
     group.current.position.set(c.x, c.y, c.z)
-    body.current.scale.y = c.h
-    body.current.position.y = c.h / 2
-    top.current.position.y = c.h + 0.003
-    front.current.position.y = c.h / 2
+    ticket.current.position.y = c.h + 0.004
+    hit.current.scale.y = c.h + 0.03
+    hit.current.position.y = (c.h + 0.03) / 2
     let e = 0
     if (state === 'peek') e = 0.45 + (reduce ? 0 : 0.3 * Math.sin(st.clock.elapsedTime * 9))
     else if (state === 'fill') e = 0.95
     else if (state === 'right' || state === 'wrong') e = 0.8
     else if (state === 'joined') e = 0.35
     else if (hover) e = clickable ? 0.55 : 0.25
-    mat.current.emissiveIntensity = damp(mat.current.emissiveIntensity, e, 10, dt)
+    emissive.current = damp(emissive.current, e, 10, dt)
   })
 
   return (
     <group ref={group}>
-      <RoundedBox
-        ref={body}
-        args={[W, 1, D]}
-        radius={0.05}
-        smoothness={3}
-        castShadow
-        receiveShadow
+      <Stack
+        look={inst.look}
+        qty={order.qty}
+        side={side}
+        brand={brand}
+        seed={order.id}
+        glow={glow}
+        emissive={emissive}
+      />
+      <group ref={ticket}>
+        <Ticket firm={firm} label={`#${order.id} · ${order.qty}`} />
+      </group>
+      {/* one invisible box catches clicks and hovers for the whole stack */}
+      <mesh
+        ref={hit}
         onClick={(e) => {
           e.stopPropagation()
           onClick()
@@ -453,31 +505,27 @@ function Block({
           document.body.style.cursor = ''
         }}
       >
-        <meshStandardMaterial
-          ref={mat}
-          color={sideColor(side)}
-          emissive={glow}
-          emissiveIntensity={0}
-          roughness={0.5}
-          metalness={0.05}
-        />
-      </RoundedBox>
-      {/* order id on the lid */}
-      <group ref={top}>
-        <Text font={monoFont} rotation-x={-Math.PI / 2} fontSize={0.21} color="#0f1114" anchorX="center" anchorY="middle">
-          {`#${order.id}`}
-        </Text>
-      </group>
-      {/* shares on the front face */}
-      <group ref={front}>
-        <Text font={monoFont} position={[0, 0, D / 2 + 0.003]} fontSize={0.2} color="#0f1114" anchorX="center" anchorY="middle">
-          {String(order.qty)}
-        </Text>
-      </group>
+        <boxGeometry args={[W, 1, D]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+      </mesh>
       {hover && (
-        <Html position={[0, h + 0.55, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+        <Html position={[0, h + 0.6, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
           <div className="whitespace-nowrap rounded-lg bg-raised px-2.5 py-1.5 text-[12px] leading-tight text-ink shadow-lg">
-            <b className="font-semibold">#{order.id}</b> {order.trader} · {order.qty} sh
+            <div className="flex items-center gap-1.5">
+              {firm && (
+                <span
+                  className="inline-flex h-5 items-center rounded-[4px] bg-white px-1.5"
+                  style={{ boxShadow: `inset 3px 0 0 ${firm.color}` }}
+                >
+                  <img src={logoUrl(firm)} alt="" className="ml-0.5 h-[70%] w-auto max-w-[96px] object-contain" draggable={false} />
+                </span>
+              )}
+              <b className="font-semibold">#{order.id}</b>
+              <span>{firm?.name ?? order.trader}</span>
+            </div>
+            <div className="tnum mt-0.5">
+              {order.side === 'buy' ? 'Buy' : 'Sell'} {units(inst, order.qty)} @ {inst.px(order.price)}
+            </div>
             <div className="tnum text-faint">arrived {clock(order.time)}</div>
           </div>
         </Html>
@@ -486,7 +534,7 @@ function Block({
   )
 }
 
-/** An order that was just dequeued floats up and fades out. */
+/** An order that was just dequeued: its tray and ticket lift off and fade out. */
 function Gone({ entry, book, reduce }: { entry: LogEntry | null; book: BookSnapshot; reduce: boolean }) {
   const ev = entry?.event
   if (!entry || ev?.kind !== 'dequeue' || reduce) return null
@@ -494,26 +542,41 @@ function Gone({ entry, book, reduce }: { entry: LogEntry | null; book: BookSnaps
   const row = levels.findIndex((l) => l.price === ev.price)
   const left = levels[row]?.orders.length ?? 0
   const k = ev.end === 'head' ? 0 : Math.min(left, MAX_SHOWN - 1)
-  return <GoneBlock key={entry.seq} side={ev.order.side} x={slotX(ev.order.side, k)} z={rowZ(row)} />
+  return (
+    <GoneBlock
+      key={entry.seq}
+      side={ev.order.side}
+      firm={firmOf(ev.order.trader)}
+      label={`#${ev.order.id} · FILLED`}
+      x={slotX(ev.order.side, k)}
+      z={rowZ(row)}
+    />
+  )
 }
 
-function GoneBlock({ side, x, z }: { side: Side; x: number; z: number }) {
+function GoneBlock({ side, firm, label, x, z }: { side: Side; firm: Firm | undefined; label: string; x: number; z: number }) {
   const g = useRef<THREE.Group>(null!)
-  const m = useRef<THREE.MeshStandardMaterial>(null!)
+  const tray = useRef<THREE.MeshStandardMaterial>(null!)
+  const fade = useRef(1)
   const t = useRef(0)
   useFrame((_, dt) => {
-    t.current = Math.min(1, t.current + dt / 0.75)
+    t.current = Math.min(1, t.current + dt / 0.85)
     const p = t.current
-    g.current.position.y = 0.15 + p * 2.2
-    g.current.scale.setScalar(1 - 0.5 * p)
-    m.current.opacity = 1 - p
+    g.current.position.y = 0.05 + p * 2.2
+    g.current.rotation.y = p * 0.5 * sign(side)
+    g.current.scale.setScalar(1 - 0.45 * p)
+    fade.current = 1 - p * p
+    tray.current.opacity = fade.current
   })
   return (
-    <group ref={g} position={[x, 0.15, z]}>
-      <mesh>
-        <boxGeometry args={[W, 0.3, D]} />
-        <meshStandardMaterial ref={m} color={sideColor(side)} emissive={C.focus} emissiveIntensity={0.8} transparent />
+    <group ref={g} position={[x, 0.05, z]}>
+      <mesh position-y={TRAY_H / 2}>
+        <boxGeometry args={[W, TRAY_H, D]} />
+        <meshStandardMaterial ref={tray} color={sideColor(side)} emissive={C.focus} emissiveIntensity={0.7} transparent />
       </mesh>
+      <group position-y={TRAY_H + 0.004}>
+        <Ticket firm={firm} label={label} fade={fade} />
+      </group>
     </group>
   )
 }
@@ -555,6 +618,9 @@ function TakerToken({ entry, book, reduce }: { entry: LogEntry | null; book: Boo
   return <Token key={taker.id} taker={taker} target={takerTarget(entry, book)} reduce={reduce} />
 }
 
+const LOGO_CARD_W = 1.0
+const LOGO_CARD_H = 0.34
+
 function Token({
   taker,
   target,
@@ -578,6 +644,8 @@ function Token({
     g.current.scale.setScalar(Math.max(0.001, c.s))
   })
   const color = sideColor(taker.side)
+  const firm = firmOf(taker.trader)
+  const who = firm?.name ?? taker.trader
   return (
     <group ref={g}>
       <mesh castShadow>
@@ -585,18 +653,46 @@ function Token({
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.9} roughness={0.25} />
       </mesh>
       <pointLight color={color} intensity={3} distance={3.2} />
-      <Billboard position={[0, 0.72, 0]}>
-        <Text font={monoFont} fontSize={0.24} color={C.ink} outlineWidth={0.02} outlineColor={C.ground}>
-          {`${taker.side === 'buy' ? 'MARKET BUY' : 'MARKET SELL'} ${taker.remaining}`}
+      <Billboard position={[0, 1.25, 0]}>
+        <Text font={monoFont} fontSize={0.21} color={C.ink} outlineWidth={0.02} outlineColor={C.ground}>
+          {`${who} · ${taker.side === 'buy' ? 'BUY' : 'SELL'} ${taker.remaining}`}
         </Text>
       </Billboard>
+      {firm && (
+        <Billboard position={[0, 1.7, 0]}>
+          {/* small floating card with the firm's logo; brand colour along the bottom */}
+          <mesh>
+            <planeGeometry args={[LOGO_CARD_W, LOGO_CARD_H]} />
+            <meshBasicMaterial color="#f7f6f1" toneMapped={false} />
+          </mesh>
+          <mesh position={[0, -LOGO_CARD_H / 2 + 0.02, 0.001]}>
+            <planeGeometry args={[LOGO_CARD_W, 0.04]} />
+            <meshBasicMaterial color={firm.color} toneMapped={false} />
+          </mesh>
+          <group position={[0, 0.012, 0.002]}>
+            <Suspense fallback={null}>
+              <LogoPlane firm={firm} maxW={LOGO_CARD_W - 0.14} maxH={LOGO_CARD_H - 0.12} />
+            </Suspense>
+          </group>
+        </Billboard>
+      )}
     </group>
   )
 }
 
 /* ------------------------------------------------------------------ trade burst */
 
-function TradeBurst({ entry, book, reduce }: { entry: LogEntry | null; book: BookSnapshot; reduce: boolean }) {
+function TradeBurst({
+  entry,
+  book,
+  inst,
+  reduce,
+}: {
+  entry: LogEntry | null
+  book: BookSnapshot
+  inst: Instrument
+  reduce: boolean
+}) {
   const ev = entry?.event
   if (!entry || ev?.kind !== 'fill') return null
   const makerSide: Side = ev.trade.takerSide === 'buy' ? 'sell' : 'buy'
@@ -609,7 +705,7 @@ function TradeBurst({ entry, book, reduce }: { entry: LogEntry | null; book: Boo
       key={entry.seq}
       x={slotX(makerSide, k)}
       z={rowZ(row)}
-      label={`${ev.trade.qty} @ ${ev.trade.price}`}
+      label={`${ev.trade.qty} @ ${inst.px(ev.trade.price)}`}
       reduce={reduce}
     />
   )

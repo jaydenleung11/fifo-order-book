@@ -1,4 +1,6 @@
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
+import { units, useInstrument } from '@/app/instruments'
+import { FirmLogo } from './FirmLogo'
 import { ArrowDownRight, ArrowUpRight, Check, ShoppingBasket, Store, UserRound, X } from 'lucide-react'
 import type { BookSnapshot, LevelSnapshot, LogEntry, Order, Priority, Side, Taker } from '@/engine/types'
 import type { Prediction, Skin } from '@/app/useController'
@@ -100,6 +102,8 @@ function Counter({
   lastPrice: number | null
   taker: Taker | null
 }) {
+  const inst = useInstrument()
+  const last = lastPrice === null ? null : inst.px(lastPrice)
   return (
     <div
       className="order-2 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 rounded-2xl bg-surface px-4 py-2.5 min-[900px]:order-first min-[900px]:col-span-2"
@@ -108,8 +112,8 @@ function Counter({
       <div className="flex items-center gap-2.5">
         <span className="text-[12.5px] leading-tight text-faint">Last<br />trade</span>
         <SplitFlapText
-          text={lastPrice === null ? '---' : String(lastPrice)}
-          length={3}
+          text={last ?? '---'}
+          length={Math.max(3, inst.px(100).length)}
           className="text-[22px] font-semibold"
           tileClassName="bg-raised text-ink"
         />
@@ -117,10 +121,10 @@ function Counter({
       <div className="flex items-center gap-2.5">
         <span className="text-[12.5px] leading-tight text-faint">Spread</span>
         <span className="tnum text-[18px] font-semibold">
-          {bestBid !== null && bestAsk !== null ? bestAsk - bestBid : '–'}
+          {bestBid !== null && bestAsk !== null ? inst.spread(bestAsk - bestBid) : '–'}
         </span>
         <span className="tnum text-[12.5px] text-muted">
-          best bid {bestBid ?? '–'}, best ask {bestAsk ?? '–'}
+          best bid {bestBid === null ? '–' : inst.px(bestBid)}, best ask {bestAsk === null ? '–' : inst.px(bestAsk)}
         </span>
       </div>
       <div className="flex min-w-[7.5rem] items-center justify-center min-[900px]:min-h-[3.25rem]">
@@ -143,8 +147,9 @@ function TakerToken({ taker }: { taker: Taker }) {
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
       className="flex shrink-0 flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink bg-ground px-2.5 py-1.5 text-center"
       role="status"
-      aria-label={`Market ${taker.side} order, ${taker.remaining} of ${taker.qty} left to fill`}
+      aria-label={`${taker.trader}: market ${taker.side} order, ${taker.remaining} of ${taker.qty} left to fill`}
     >
+      <FirmLogo name={taker.trader} className="mb-1 h-[18px]" />
       <span className="flex items-center gap-1 text-[11.5px] font-semibold">
         <Icon className="size-3.5" aria-hidden />
         Market {taker.side}
@@ -241,11 +246,12 @@ function Lane({
   const nextUp = priority === 'fifo' ? head : level.orders[n - 1]
   const checkout = skin === 'checkout'
   const sideName = isBid ? 'bid' : 'ask'
+  const inst = useInstrument()
 
   return (
     <div
       role="group"
-      aria-label={`${isBid ? 'Bid' : 'Ask'} ${level.price}: ${n === 0 ? 'empty' : `${n} order${n === 1 ? '' : 's'}, head #${head.id}`}`}
+      aria-label={`${isBid ? 'Bid' : 'Ask'} ${inst.px(level.price)}: ${n === 0 ? 'empty' : `${n} order${n === 1 ? '' : 's'}, head #${head.id}`}`}
       className={cn(
         'relative flex h-[74px] items-center gap-2 rounded-xl px-2 transition-colors duration-200',
         isBid ? 'min-[900px]:flex-row-reverse' : '',
@@ -253,10 +259,10 @@ function Lane({
       )}
     >
       {/* Price, on the side that faces the spread. */}
-      <div className={cn('flex w-11 shrink-0 flex-col', isBid ? 'min-[900px]:items-end' : 'items-start')}>
+      <div className={cn('flex w-[3.6rem] shrink-0 flex-col', isBid ? 'min-[900px]:items-end' : 'items-start')}>
         {checkout && <Store className="mb-0.5 size-3.5 text-faint" aria-hidden />}
-        <span className={cn('tnum text-[17px] font-semibold leading-none', isBid ? 'text-bid' : 'text-ask')}>
-          {level.price}
+        <span className={cn('tnum text-[15px] font-semibold leading-none', isBid ? 'text-bid' : 'text-ask')}>
+          {inst.px(level.price)}
         </span>
         <span className="mt-1 text-[11px] text-faint">{checkout ? 'till' : 'price'}</span>
       </div>
@@ -268,7 +274,7 @@ function Lane({
           'flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-1.5 pt-3 [scrollbar-width:thin]',
           isBid && 'min-[900px]:flex-row-reverse',
         )}
-        aria-label={`Queue at ${level.price}, head first`}
+        aria-label={`Queue at ${inst.px(level.price)}, head first`}
       >
         <AnimatePresence initial={false} mode="popLayout">
           {level.orders.map((o, i) => (
@@ -331,13 +337,14 @@ function Chip({
   onGuess: (id: number) => void
 }) {
   const isBid = side === 'buy'
-  const width = (checkout ? 76 : 74) + Math.min(order.qty, 20) * 4
+  const inst = useInstrument()
+  const width = (checkout ? 84 : 86) + Math.min(order.qty, 20) * 4
   const guessable = predicting !== null && predicting.guess === null
   const guessed = predicting?.guess === order.id
   const reveal = predicting !== null && predicting.guess !== null
   const correct = reveal && predicting.correctId === order.id
   const filled = order.qty === 0
-  const label = `Order #${order.id}, ${order.trader}, ${order.qty} ${checkout ? 'items' : 'shares'} at ${order.price}, arrived ${clock(order.time)}${isHead ? ', head of queue' : ''}${isTail && !isHead ? ', tail of queue' : ''}`
+  const label = `Order #${order.id}, ${order.trader}, ${checkout ? `${order.qty} items` : units(inst, order.qty)} at ${inst.px(order.price)}, arrived ${clock(order.time)}${isHead ? ', head of queue' : ''}${isTail && !isHead ? ', tail of queue' : ''}`
 
   const body = (
     <>
@@ -356,7 +363,7 @@ function Chip({
         <span className="flex w-full items-center gap-1.5">
           <UserRound className={cn('size-5 shrink-0', isBid ? 'text-bid' : 'text-ask')} aria-hidden />
           <span className="min-w-0 text-left leading-tight">
-            <span className="block truncate text-[12.5px] font-semibold text-ink">{order.trader}</span>
+            <FirmLogo name={order.trader} className="h-[18px] max-w-[4.5rem]" />
             <span className="tnum flex items-center gap-0.5 text-[11px] text-muted">
               <ShoppingBasket className="size-3" aria-hidden />
               {order.qty}
@@ -366,8 +373,9 @@ function Chip({
       ) : (
         <span className="flex w-full flex-col leading-none">
           <span className="flex items-baseline justify-between gap-1">
-            <span className="tnum truncate text-[11px] text-muted">
-              #{order.id} <span className="text-ink/85">{order.trader}</span>
+            <span className="tnum flex min-w-0 items-center gap-1 text-[11px] text-muted">
+              #{order.id}
+              <FirmLogo name={order.trader} className="h-[18px] min-w-0" />
             </span>
             <span className="tnum text-[18px] font-semibold text-ink">{order.qty}</span>
           </span>

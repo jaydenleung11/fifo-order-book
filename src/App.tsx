@@ -1,11 +1,12 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Box, Check, ChevronRight, Rows3, X } from 'lucide-react'
+import { Box, Check, ChevronRight, Rows3, TableProperties, X } from 'lucide-react'
 import { canStepForward, currentBook, currentEntry, fairnessForCurrent, shownTrades } from '@/engine/session'
 import type { BookSnapshot, LogEntry } from '@/engine/types'
-import { isScenario, useController, type Dispatch, type State } from '@/app/useController'
+import { isScenario, useController, type Dispatch, type State, type View } from '@/app/useController'
 import { SCENARIOS } from '@/app/scenarios'
 import { explain } from '@/app/explain'
+import { INSTRUMENTS, InstrumentContext, fillText, units, useInstrument, type Instrument } from '@/app/instruments'
 import { Book } from '@/components/Book'
 import { Dock, OrderForm } from '@/components/Controls'
 import { OpsPanel } from '@/components/OpsPanel'
@@ -13,6 +14,7 @@ import { TradeTape } from '@/components/TradeTape'
 import { DepthChart } from '@/components/DepthChart'
 import { QueueDiagram } from '@/components/QueueDiagram'
 import { RuleCard } from '@/components/RuleCard'
+import { Ladder } from '@/components/Ladder'
 import { Segmented } from '@/components/ui/segmented'
 import { Button } from '@/components/ui/button'
 import SplitFlapText from '@/components/kokonutui/split-flap-text'
@@ -39,12 +41,15 @@ export default function App() {
   const fairness = useMemo(() => fairnessForCurrent(session), [session])
   const lastPrice = trades.length ? trades[trades.length - 1].price : null
   const webgl = useMemo(hasWebGL, [])
-  const view = webgl ? state.view : 'flat'
+  const view = webgl || state.view !== '3d' ? state.view : 'flat'
   const [pinned, setPinned] = useState<LaneId | null>(null)
+  const [instId, setInstId] = useState(INSTRUMENTS[0].id)
+  const inst = INSTRUMENTS.find((i) => i.id === instId) ?? INSTRUMENTS[0]
 
   useKeyboard(state, dispatch)
 
   return (
+    <InstrumentContext.Provider value={inst}>
     <div className={cn('mx-auto max-w-[1480px] px-4 pb-10 pt-5 sm:px-6', state.prediction && 'pb-36')}>
       <a
         href="#book"
@@ -71,11 +76,16 @@ export default function App() {
         <div id="book" tabIndex={-1} className="scroll-mt-4 outline-none">
           {view === '3d' ? (
             <div className="overflow-hidden rounded-2xl border border-rule bg-ground">
+              <StageBar inst={inst} onPick={setInstId}>
+                <ViewToggle state={state} dispatch={dispatch} webgl={webgl} />
+              </StageBar>
             <div className="relative h-[clamp(380px,40vw,580px)]">
               <Suspense fallback={<div className="grid h-full place-items-center text-[13px] text-faint">Building the 3D book…</div>}>
                 <Book3D
                   book={book}
                   entry={entry}
+                  inst={inst}
+                  trades={trades}
                   prediction={state.prediction}
                   onGuess={(orderId) => dispatch({ type: 'guess', orderId })}
                   lane={pinned}
@@ -84,10 +94,9 @@ export default function App() {
               </Suspense>
               <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
                 <Hud book={book} lastPrice={lastPrice} />
-                <div className="pointer-events-auto flex items-center gap-2">
-                  <span className="hidden text-[12px] text-faint [@media(pointer:fine)]:inline">drag to orbit · click a lane</span>
-                  <ViewToggle state={state} dispatch={dispatch} webgl={webgl} />
-                </div>
+                <span className="hidden rounded-full bg-surface/70 px-2.5 py-1 text-[12px] text-faint [@media(pointer:fine)]:inline">
+                  drag to orbit · click a lane
+                </span>
               </div>
               <BookSummary book={book} />
             </div>
@@ -95,9 +104,17 @@ export default function App() {
                 <StepCaption entry={entry} overlay />
               </div>
             </div>
+          ) : view === 'ladder' ? (
+            <div className="flex flex-col gap-3">
+              <StageBar inst={inst} onPick={setInstId} flat>
+                <ViewToggle state={state} dispatch={dispatch} webgl={webgl} />
+              </StageBar>
+              <Ladder book={book} entry={entry} trades={trades} />
+              <StepCaption entry={entry} />
+            </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap justify-end gap-2">
+              <StageBar inst={inst} onPick={setInstId} flat>
                 <Segmented
                   size="sm"
                   label="Draw each queue as"
@@ -109,7 +126,7 @@ export default function App() {
                   ]}
                 />
                 <ViewToggle state={state} dispatch={dispatch} webgl={webgl} />
-              </div>
+              </StageBar>
               <Book
                 book={book}
                 entry={entry}
@@ -168,24 +185,70 @@ export default function App() {
       </div>
 
       <footer className="mt-8 border-t border-rule pt-4 text-[12.5px] text-faint">
-        Made by Aarav Kyparlis and Jayden Leung for CSCI-UA.0102 Data Structures, NYU, Fall 2026. Keyboard: ← and → step, P plays or
-        pauses. Prices and names are made up.
+        <p>
+          Made by Aarav Kyparlis and Jayden Leung for CSCI-UA.0102 Data Structures, NYU, Fall 2026. Keyboard: ← and → step, P plays or
+          pauses.
+        </p>
+        <p className="mt-1.5">
+          Every order and price here is simulated for teaching. The firms named are real, but they did not place these orders and are
+          not affiliated with or endorsing this project. Firm names and logos are trademarks of their owners; logo images come from
+          Wikimedia Commons and Wikipedia.
+        </p>
       </footer>
+    </div>
+    </InstrumentContext.Provider>
+  )
+}
+
+/** What the book is trading, plus the view controls. */
+function StageBar({
+  inst,
+  onPick,
+  flat,
+  children,
+}: {
+  inst: Instrument
+  onPick: (id: string) => void
+  flat?: boolean
+  children: ReactNode
+}) {
+  return (
+    <div className={cn('flex flex-wrap items-center justify-between gap-2', flat ? '' : 'border-b border-rule bg-surface px-3 py-2')}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <Segmented
+          size="sm"
+          label="Instrument"
+          value={inst.id}
+          onChange={onPick}
+          options={INSTRUMENTS.map((i) => ({
+            value: i.id,
+            aria: `${i.symbol}, ${i.name}`,
+            label: (
+              <>
+                <span className="font-mono font-semibold">{i.symbol}</span>
+                <span className="hidden text-faint sm:inline">{i.kind}</span>
+              </>
+            ),
+          }))}
+        />
+        <span className="text-[12.5px] text-muted">{inst.name}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   )
 }
 
 function ViewToggle({ state, dispatch, webgl }: { state: State; dispatch: Dispatch; webgl: boolean }) {
-  if (!webgl) return null
   return (
-    <Segmented<'3d' | 'flat'>
+    <Segmented<View>
       size="sm"
       label="View"
       value={state.view}
       onChange={(view) => dispatch({ type: 'view', view })}
       options={[
-        { value: '3d', label: <><Box className="size-3.5" aria-hidden />3D</> },
+        ...(webgl ? [{ value: '3d' as const, label: <><Box className="size-3.5" aria-hidden />3D</> }] : []),
         { value: 'flat', label: <><Rows3 className="size-3.5" aria-hidden />Flat</> },
+        { value: 'ladder', label: <><TableProperties className="size-3.5" aria-hidden />Ladder</> },
       ]}
     />
   )
@@ -193,6 +256,7 @@ function ViewToggle({ state, dispatch, webgl }: { state: State; dispatch: Dispat
 
 /** Last trade and spread, floating over the 3D stage. */
 function Hud({ book, lastPrice }: { book: BookSnapshot; lastPrice: number | null }) {
+  const inst = useInstrument()
   const bestBid = book.bids.find((l) => l.orders.length)?.price ?? null
   const bestAsk = book.asks.find((l) => l.orders.length)?.price ?? null
   return (
@@ -200,15 +264,15 @@ function Hud({ book, lastPrice }: { book: BookSnapshot; lastPrice: number | null
       <div className="flex items-center gap-2">
         <span className="text-[11.5px] leading-tight text-faint">Last<br />trade</span>
         <SplitFlapText
-          text={lastPrice === null ? '---' : String(lastPrice)}
-          length={3}
+          text={lastPrice === null ? '---' : inst.px(lastPrice)}
+          length={Math.max(3, inst.px(100).length)}
           className="text-[18px] font-semibold"
           tileClassName="bg-raised text-ink"
         />
       </div>
       <div className="flex items-baseline gap-1.5">
         <span className="text-[11.5px] text-faint">Spread</span>
-        <span className="tnum text-[17px] font-semibold">{bestBid !== null && bestAsk !== null ? bestAsk - bestBid : '–'}</span>
+        <span className="tnum text-[17px] font-semibold">{bestBid !== null && bestAsk !== null ? inst.spread(bestAsk - bestBid) : '–'}</span>
       </div>
     </div>
   )
@@ -216,7 +280,8 @@ function Hud({ book, lastPrice }: { book: BookSnapshot; lastPrice: number | null
 
 /** One line: the operation in code, and what it means. */
 function StepCaption({ entry, overlay }: { entry: LogEntry | null; overlay?: boolean }) {
-  const ex = entry ? explain(entry, entry.book.priority) : null
+  const inst = useInstrument()
+  const ex = entry ? explain(entry, entry.book.priority, inst) : null
   return (
     <div
       className={cn(
@@ -250,11 +315,12 @@ function StepCaption({ entry, overlay }: { entry: LogEntry | null; overlay?: boo
 
 /** The 3D book, read out as text for screen readers. */
 function BookSummary({ book }: { book: BookSnapshot }) {
+  const inst = useInstrument()
   const line = (side: string, l: BookSnapshot['bids'][number]) =>
-    `${side} ${l.price}: ${l.orders.length === 0 ? 'empty' : l.orders.map((o) => `#${o.id} ${o.trader} ${o.qty}`).join(', then ')}`
+    `${side} ${inst.px(l.price)}: ${l.orders.length === 0 ? 'empty' : l.orders.map((o) => `#${o.id} ${o.trader}, ${units(inst, o.qty)}`).join('; then ')}`
   return (
     <div className="sr-only">
-      <h2>Order book, head of each queue first</h2>
+      <h2>{inst.name} order book, head of each queue first</h2>
       <ul>
         {book.asks.map((l) => (
           <li key={`a${l.price}`}>{line('Ask', l)}</li>
@@ -301,6 +367,7 @@ function ModePicker({ state, dispatch }: { state: State; dispatch: Dispatch }) {
 }
 
 function ScenarioCaption({ state, dispatch }: { state: State; dispatch: Dispatch }) {
+  const inst = useInstrument()
   const scenario = SCENARIOS.find((s) => s.id === state.mode)
   if (!scenario || !isScenario(state.mode)) return null
   const step = scenario.steps[state.scenarioStep]
@@ -314,7 +381,7 @@ function ScenarioCaption({ state, dispatch }: { state: State; dispatch: Dispatch
         ))}
       </span>
       <p className="min-w-0 flex-1 text-[15px] leading-snug text-ink" aria-live="polite">
-        {step.caption}
+        {fillText(step.caption, inst)}
       </p>
       {last && !busy ? (
         <Button variant="quiet" onClick={() => dispatch({ type: 'reset' })}>
@@ -332,6 +399,7 @@ function ScenarioCaption({ state, dispatch }: { state: State; dispatch: Dispatch
 
 function PredictBanner({ state, dispatch }: { state: State; dispatch: Dispatch }) {
   const p = state.prediction
+  const inst = useInstrument()
   const continueRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (p?.guess != null) continueRef.current?.focus()
@@ -344,8 +412,8 @@ function PredictBanner({ state, dispatch }: { state: State; dispatch: Dispatch }
   const rule = state.session.log[state.session.cursor]?.book.priority ?? state.priority
   const why =
     rule === 'fifo'
-      ? `Best price first (${p.price}), then earliest arrival: #${p.correctId}${correct ? ` arrived at ${clock(correct.time)}` : ''} and sits at the head.`
-      : `LIFO takes the newest order at the best price (${p.price}): #${p.correctId}, at the tail.`
+      ? `Best price first (${inst.px(p.price)}), then earliest arrival: #${p.correctId}${correct ? ` arrived at ${clock(correct.time)}` : ''} and sits at the head.`
+      : `LIFO takes the newest order at the best price (${inst.px(p.price)}): #${p.correctId}, at the tail.`
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -356,7 +424,7 @@ function PredictBanner({ state, dispatch }: { state: State; dispatch: Dispatch }
     >
       {p.guess === null ? (
         <p className="text-[15px] text-ink">
-          <b className="font-semibold">Your call:</b> a market {p.takerSide} is about to trade at {p.price}. Which {side.slice(0, -1)} fills
+          <b className="font-semibold">Your call:</b> a market {p.takerSide} is about to trade at {inst.px(p.price)}. Which {side.slice(0, -1)} fills
           first? Click its block.
         </p>
       ) : (
