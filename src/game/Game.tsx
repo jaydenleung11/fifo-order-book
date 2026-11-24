@@ -167,7 +167,10 @@ export function Game() {
         )}
       </main>
 
-      <footer className="mt-8 text-[13px] text-ink-soft">Aarav Kyparlis &amp; Jayden Leung, CSCI-UA.0102 Data Structures</footer>
+      <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-soft">
+        <span>Aarav Kyparlis &amp; Jayden Leung, CSCI-UA.0102 Data Structures</span>
+        <a href="v1/" className="underline underline-offset-2 hover:text-ink">Version 1</a>
+      </footer>
     </div>
   )
 }

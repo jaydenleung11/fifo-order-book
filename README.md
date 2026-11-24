@@ -3,8 +3,9 @@
 A small game about **queues** for NYU CSCI-UA.0102-060 Data Structures, Fall 2026, by
 Aarav Kyparlis (ak13728) and Jayden Leung (jal9756).
 
-Live: <https://fifo-order-book.vercel.app/>
-Repository: <https://github.com/jaydenleung11/fifo-order-book>
+- **Match the Book** at <https://fifo-order-book.vercel.app/>
+- **Version 1 · First in, first filled** at <https://fifo-order-book.vercel.app/v1/>
+- **Repository** at <https://github.com/jaydenleung11/fifo-order-book>
 
 You are the matching engine of an order book. Bids sit on the left and asks on the right. Each
 price level is a **lane**, and each lane is a FIFO queue of order chips. A chip shows its arrival
@@ -67,7 +68,8 @@ The game is deterministic: orders come from a seeded script, and every tap is lo
 game-clock time, so `replay(level, inputs)` rebuilds exactly the same game and event log.
 
 Stack: Vite 8, React 19, TypeScript, Tailwind CSS 4, Motion, Lucide icons, Vitest, and
-self-hosted fonts via Fontsource.
+self-hosted fonts via Fontsource. Version 1 also uses Three.js, React Three Fiber, Drei,
+Radix primitives, and the Kokonut UI split-flap display.
 
 ## Design
 
@@ -75,7 +77,7 @@ A sunny trading-pit board on apricot paper. Bids are teal and point up; asks are
 down and are hatched. Plum is the ink (never black) and gold marks the chip the rule fills next.
 Fonts: Lilita One for prices and numbers, like a painted board; Atkinson Hyperlegible Next for
 the few small words; JetBrains Mono only for the code tags (`enqueue O(1)`). All art is ours, in
-SVG and CSS. There are no bank or brand logos anywhere; traders have first names only.
+SVG and CSS. Match the Book uses first names for its traders.
 
 Design skills used (copied into `.claude/skills/`):
 - **frontend-design:** the palette and type plan, one bold element (the board), sentence case,
@@ -92,8 +94,8 @@ drew our own simple version in CSS.
 ## Run it
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
+npm ci
+npm run dev        # / for Match the Book and /v1/ for the original order book
 npm test           # Vitest: both engines
 npm run build      # type-check + production build into dist/
 ```
@@ -101,15 +103,14 @@ npm run build      # type-check + production build into dist/
 ## Deploy
 
 The Vercel project is linked to this repository with the Vite preset (build `npm run build`,
-output `dist`). Every push to `main` deploys to production. `vercel.json` redirects the old
-`/v1` paths to `/`. No project settings or domains were changed.
+output `dist`). Every push to `main` deploys to production. Vite builds `dist/index.html` for
+Match the Book and `dist/v1/index.html` for Version 1. The Vercel route `/v1` redirects to `/v1/`.
 
 A manual GitHub Pages workflow is also in `.github/workflows`; it builds with
 `BASE_PATH=/<repo-name>/`.
 
-## History
+## Version 1
 
-- **Version 1**, an interactive 3D order book (tag `v1`, branch `v1-archive`).
-- **Version 2**, *Food Truck Rush*, a food-truck game about FIFO lines.
-- **Match the Book** (this version) replaces both on the live site. The state right before the
-  rework is tagged `v1-before-game`. Check out any tag to run an older version.
+*First in, first filled* is the original interactive 3D trading floor, archived under tag `v1`
+and branch `v1-archive`. It includes a simulated live market, guides to FIFO and LIFO, a linked-list
+view of each price queue, and the original financial firm names and logos. The orders are simulated.
