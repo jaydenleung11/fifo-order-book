@@ -27,10 +27,7 @@ export const DEFAULT_CONFIG: BookConfig = {
  * Names on the simulated orders: real firms that trade on real exchanges.
  * The orders are made up; these firms did not place them.
  */
-const TRADERS = [
-  'Goldman Sachs', 'J.P. Morgan', 'Citadel Securities', 'Morgan Stanley', 'Jane Street', 'Bank of America',
-  'Barclays', 'UBS', 'Virtu Financial', 'Citi', 'HSBC', 'Deutsche Bank',
-]
+const TRADERS = ['Ana', 'Ben', 'Caro', 'Dev', 'Eli', 'Fay', 'Gus', 'Hana', 'Ivo', 'Jun', 'Kai', 'Lia']
 
 export function traderFor(id: number): string {
   return TRADERS[(id - 1) % TRADERS.length]

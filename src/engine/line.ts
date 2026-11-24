@@ -1,10 +1,10 @@
-import { OrderQueue } from '@/engine/queue'
+import { OrderQueue } from './queue'
 
 /**
- * The line at a food-truck window. It is Version 1's linked-list queue
- * (O(1) enqueue at the back, O(1) dequeue at the front) plus one extra:
- * removing someone from the middle, which is what "cutting the line" costs.
- * A queue has no shortcut for that, so it takes O(n): everyone is walked
+ * One price level's queue in the game: the linked-list OrderQueue
+ * (O(1) enqueue at the tail, O(1) dequeue at the head) plus one extra,
+ * taking an order out of the middle, which is what a queue jump costs.
+ * A queue has no shortcut for that, so it takes O(n): every order is walked
  * through once and put back in the same order.
  */
 export class Line<T> extends OrderQueue<T> {
