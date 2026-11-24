@@ -1,0 +1,182 @@
+@import "tailwindcss";
+@import "@fontsource/lilita-one/400.css";
+@import "@fontsource/atkinson-hyperlegible-next/400.css";
+@import "@fontsource/atkinson-hyperlegible-next/700.css";
+
+/*
+  Food Truck Rush. Midday street food: a butter-yellow sky, apricot
+  pavement, a teal truck with a cherry awning, and plum for ink (never
+  black). Lilita One is the hand-painted truck sign; Atkinson Hyperlegible
+  Next does every small word, chosen because it stays readable when tiny.
+*/
+:root {
+  color-scheme: light;
+  --sky: #ffd970;
+  --sky-hi: #ffe9a8;
+  --street: #f6b06a;
+  --curb: #e58f45;
+  --truck: #1d8a84;
+  --truck-dk: #126660;
+  --awning: #e8483d;
+  --paper: #fff7e4;
+  --ink: #2f1d45;
+  --ink-soft: #5d4a73;
+  --mint: #2f9e5f;
+  --tomato: #c8352b;
+  --focus: #2f1d45;
+}
+
+@theme inline {
+  --color-sky: var(--sky);
+  --color-sky-hi: var(--sky-hi);
+  --color-street: var(--street);
+  --color-curb: var(--curb);
+  --color-truck: var(--truck);
+  --color-truck-dk: var(--truck-dk);
+  --color-awning: var(--awning);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-mint: var(--mint);
+  --color-tomato: var(--tomato);
+  --font-sign: "Lilita One", ui-rounded, system-ui, sans-serif;
+  --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  background: var(--sky);
+  color: var(--ink);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 88% 6%, #fff3c4 0 60px, transparent 61px),
+    linear-gradient(var(--sky-hi), var(--sky) 55%);
+  background-attachment: fixed;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+.font-sign {
+  font-family: var(--font-sign);
+  letter-spacing: 0.01em;
+}
+
+/* The awning: cherry and cream stripes with a scalloped edge. */
+.ftr-awning {
+  background: repeating-linear-gradient(90deg, var(--awning) 0 22px, var(--paper) 22px 44px);
+  -webkit-mask: radial-gradient(circle at 11px 100%, transparent 7px, #000 7.5px) 0 0 / 22px 100% repeat-x;
+  mask: radial-gradient(circle at 11px 100%, transparent 7px, #000 7.5px) 0 0 / 22px 100% repeat-x;
+}
+
+/* Paper ticket with a torn bottom edge. */
+.ftr-ticket {
+  background: var(--paper);
+  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 8px 100%;
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 8px 100%;
+}
+
+.ftr-receipt {
+  background: var(--paper);
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / 14px 51% repeat-x;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / 14px 51% repeat-x;
+}
+
+/* The glowing spot in front of the window. */
+.ftr-spot {
+  background: radial-gradient(closest-side, #fffdf0, #fff1a8 45%, #ffd94a 70%, transparent);
+  border-radius: 50%;
+  animation: ftr-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ftr-pulse {
+  50% { transform: scale(1.12); opacity: 0.75; }
+}
+
+.ftr-steam circle {
+  animation: ftr-puff 0.9s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.ftr-steam circle:nth-child(2) { animation-delay: 0.3s; }
+
+@keyframes ftr-puff {
+  to { transform: translateY(-3px) scale(1.2); }
+}
+
+.ftr-wave {
+  animation: ftr-wave 0.5s ease-in-out infinite alternate;
+  transform-origin: 8px 38px;
+}
+
+@keyframes ftr-wave {
+  from { transform: rotate(-12deg); }
+  to { transform: rotate(10deg); }
+}
+
+/* Steam from the truck's chimney. */
+.ftr-chimney span {
+  position: absolute;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: #fffdf5;
+  opacity: 0;
+  animation: ftr-rise 2.4s ease-out infinite;
+}
+.ftr-chimney span:nth-child(2) { animation-delay: 0.8s; }
+.ftr-chimney span:nth-child(3) { animation-delay: 1.6s; }
+
+@keyframes ftr-rise {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0.9; }
+  100% { transform: translate(10px, -46px) scale(1.6); opacity: 0; }
+}
+
+.ftr-bob {
+  animation: ftr-bob 1.1s ease-in-out infinite;
+}
+@keyframes ftr-bob {
+  50% { transform: translateY(-2px); }
+}
+
+/* Operation tags: pop in, hold, fade. They live for 1.1 s. */
+.ftr-tag {
+  animation: ftr-tag 1.1s ease-out forwards;
+}
+@keyframes ftr-tag {
+  0% { opacity: 0; transform: translateY(8px); }
+  14% { opacity: 1; transform: none; }
+  75% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes ftr-tag-fade {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ftr-tag { animation-name: ftr-tag-fade; }
+  .ftr-spot,
+  .ftr-steam circle,
+  .ftr-wave,
+  .ftr-chimney span,
+  .ftr-bob {
+    animation: none;
+  }
+  .ftr-chimney span:first-child { opacity: 0.6; transform: translate(4px, -18px); }
+}
