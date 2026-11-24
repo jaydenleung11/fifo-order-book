@@ -59,6 +59,12 @@ export default function App() {
       </a>
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
         <div className="max-w-xl">
+          <a
+            href="../"
+            className="mb-2 inline-flex items-center gap-1 rounded-full border border-rule px-2.5 py-0.5 text-[12.5px] text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-focus"
+          >
+            ← Back to the game <span className="text-faint">(Version 2)</span>
+          </a>
           <h1 className="text-balance text-[clamp(1.6rem,2.6vw,2.15rem)] font-bold leading-[1.05] tracking-[-0.02em]">
             First in, first filled
           </h1>

@@ -10,7 +10,17 @@ export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   plugins: [react(), tailwindcss()],
   // The 3D book (three.js) is a separate chunk, loaded only when shown.
-  build: { chunkSizeWarningLimit: 1200 },
+  // Two pages: the game (Version 2) at / and the original order book
+  // (Version 1) at /v1/.
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        v1: fileURLToPath(new URL('./v1/index.html', import.meta.url)),
+      },
+    },
+  },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
