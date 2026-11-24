@@ -1,16 +1,114 @@
 # First in, first filled
 
-An interactive order book in which every price level is a **queue**. New limit orders
-`enqueue` at the tail, and market orders `dequeue` from the head of the best price level. That
-is FIFO, or price-time priority, which is how real exchanges match orders.
-
-Course project for NYU CSCI-UA.0102-060 Data Structures, Fall 2026, by
+A course project about **queues** for NYU CSCI-UA.0102-060 Data Structures, Fall 2026, by
 Aarav Kyparlis (ak13728) and Jayden Leung (jal9756).
 
-Live site: <https://fifo-order-book.vercel.app>  
-Repository: <https://github.com/jaydenleung11/fifo-order-book>
+- **Version 2, Food Truck Rush** (the game), at <https://fifo-order-book.vercel.app/>
+- **Version 1, the order book**, at <https://fifo-order-book.vercel.app/v1/>
 
-## What it shows
+Repository: <https://github.com/jaydenleung11/fifo-order-book>. Version 1 is preserved as the git
+tag `v1` and the branch `v1-archive`.
+
+## Version 2: Food Truck Rush
+
+You run a food truck window, and the line is a FIFO queue. Customers join at the **back**
+(`enqueue`) and you serve the **front** (`dequeue`). Serving anyone else is possible, but the
+people you skipped get angry and you lose points. Serving in order builds a combo.
+
+| Level | Idea it adds |
+| --- | --- |
+| 1. One line | Serve the front. A glowing spot marks the front, a signpost marks the back. |
+| 2. Rush hour | Faster arrivals, numbered tickets, and two-item orders that stay at the front until both are served (a partial fill). Some customers wave a tip to tempt you to serve them early. |
+| 3. Three lanes | Lanes priced $11, $10 and $9, one queue each. Serve the best price first, then the front of that lane. A short screen then reveals that this is an order book: lane = price level, customer = limit order, ready item = market order. That is price-time priority. |
+| 4. Chaos mode | The rush-hour customers again, under LIFO (newest first). At the end, both rules are replayed on the same customers with the same button presses and shown side by side: how fair each was, the longest wait, and the order people were served in. |
+
+In level 3 the waiting customers are buyers bidding a price, and each ready item is the truck
+selling "at market" into the best bid. (The brief said "a buyer arriving"; we put the market
+order on the seller's side so the waiting customers can stay the buyers.)
+
+**Controls.** Space or Enter serves (in chaos mode it serves the newest). Click or tap any
+customer to serve them out of turn. In level 3, keys `1` `2` `3` serve a lane, and `↑`/`↓` move
+the lane that Space serves. `P` or `Esc` pauses. There is a mute button, and a "How it works"
+panel that starts collapsed.
+
+**Scoring.** You get 10 points per item served in order (5 if the customer had already waited
+too long). The multiplier goes up by ×1 every 4 in-order serves, to a maximum of ×4. Serving out
+of order costs 25 points and resets the combo. The fairness meter shows the share of items that
+went to whoever had waited longest. Stars: 1 for finishing, 1 for at least 90% fairness, and 1
+for reaching the level's score target.
+
+### How it is built
+
+```
+src/game/engine/        pure TypeScript, no React or DOM
+  line.ts               Line: Version 1's linked-list OrderQueue plus removeWhere()
+                        (cutting the line, O(n))
+  levels.ts             level settings and scriptFor(): the seeded customer sequence
+  rng.ts                Mulberry32 seeded random numbers
+  sim.ts                Sim: arrivals, kitchen, serving, scoring, an input log and an event
+                        log; replay() rebuilds a game from its inputs; autoplay() runs the
+                        FIFO/LIFO comparison
+  game.test.ts          Vitest: FIFO order, partial service, lane priority, LIFO vs FIFO
+                        on identical customers, replay determinism
+src/game/               React UI: Game (screens), Play (game clock + HUD), Scene (truck
+                        and lanes), art/Person (customers drawn as SVG), sound (Web Audio)
+index.html              Version 2 entry (/)
+v1/index.html           Version 1 entry (/v1/), code in src/app, src/components, src/engine
+```
+
+The game is deterministic. The customers come from a seeded script, and every player action is
+logged with its game-clock time, so `replay(level, inputs)` rebuilds exactly the same game.
+Chaos mode uses the same seed as rush hour.
+
+### Design
+
+The look is midday street food: a butter-yellow sky, apricot pavement, a teal truck with a
+cherry-and-cream awning, and plum instead of black for text. Fonts are Lilita One (the
+hand-painted truck sign) and Atkinson Hyperlegible Next (small text, chosen because it stays
+readable when tiny). All art is drawn by us in SVG and CSS, with no logos or brands. Mood is
+shown by shape as well as colour: a smile; a flat mouth with a sweat drop; a frown with angry
+brows and steam. Animations respect `prefers-reduced-motion`.
+
+Design skills used (in `.claude/skills/`):
+- **frontend-design:** palette and type plan, one bold element (the truck), sentence case,
+  no template chrome.
+- **web-design-guidelines:** audited `src/game`. We fixed the findings: hover states, the
+  fairness bar animated with transform, autofocus only with a mouse, focus on Resume when
+  paused, `translate="no"` on code tokens, balanced headings.
+- **ui-ux-pro-max** and **taste-skill:** used as checklists for touch targets and
+  anti-template rules.
+
+From **kokonutui**, the summary screen borrows the torn-paper look of its receipt-printer
+component. We drew our own simpler version rather than shipping its physics. Lucide supplies the
+UI icons.
+
+## Run it
+
+```bash
+npm install
+npm run dev        # http://localhost:5173 (game) and http://localhost:5173/v1/ (order book)
+npm test           # Vitest: Version 1 engine + Version 2 game engine
+npm run build      # type-check + production build of both pages into dist/
+```
+
+## Deploy
+
+**Vercel (live site).** The Vercel project is linked to this repository with the Vite preset
+(build `npm run build`, output `dist`). Every push to `main` deploys to production. The build
+produces `dist/index.html` (the game) and `dist/v1/index.html` (the order book).
+`vercel.json` only redirects `/v1` to `/v1/`. No project settings or domains changed.
+
+**GitHub Pages (manual fallback).** Set Settings → Pages → Source to **GitHub Actions**, then run
+the "Deploy to GitHub Pages" workflow. It builds with `BASE_PATH=/<repo-name>/`. The game's link
+to Version 1 and Version 1's link back are relative, so both work under that path.
+
+## Version 1: the order book (at /v1/)
+
+An interactive order book in which every price level is a queue. New limit orders `enqueue` at
+the tail, and market orders `dequeue` from the head of the best price level. It is unchanged
+except for a "Back to the game" link.
+
+### What it shows
 
 - **A 3D order book that runs by itself.** The *Live market* mode invents a steady flow of
   orders, so you can just watch. Each price level is a lane of blocks: block height is the order's
@@ -36,28 +134,7 @@ Repository: <https://github.com/jaydenleung11/fifo-order-book>
 Controls: Step back, Play/Pause, Step, Reset, and Speed (½×, 1×, 2×, 4×). Keyboard: `←`/`→` step,
 `P` plays or pauses. With reduced motion turned on, nothing moves until you press Play.
 
-## Run it
-
-```bash
-npm install
-npm run dev        # http://localhost:5173
-npm test           # Vitest engine tests
-npm run build      # type-check + production build into dist/
-```
-
-## Deploy
-
-**Vercel (live site).** The Vercel project is linked to this repository with the Vite preset
-(build `npm run build`, output `dist`, no `BASE_PATH`). Every push to `main` deploys to
-production; other branches get preview URLs.
-
-**GitHub Pages (manual fallback).** In the repo go to Settings → Pages → Build and deployment,
-set Source to **GitHub Actions**, then run the "Deploy to GitHub Pages" workflow from the
-Actions tab. It tests, builds with `BASE_PATH=/<repo-name>/`, and publishes `dist/` to
-`https://<user>.github.io/<repo-name>/`. Nothing in the code hard-codes the repo name:
-`vite.config.ts` reads `BASE_PATH` (default `/`).
-
-## How it is built
+### How it is built
 
 ```
 src/engine/        pure TypeScript, no React or DOM
@@ -80,7 +157,7 @@ drei (the 3D book, lazy-loaded), Motion (layout and enter/exit animations), Radi
 icons, Vitest, and self-hosted fonts (Schibsted Grotesk, JetBrains Mono for code) via
 Fontsource.
 
-## Decisions we made (and why)
+### Decisions we made (and why)
 
 - **Limit orders never cross the spread.** You pick a price from your own side's levels, so a
   limit order always rests in a queue. That keeps the story about queues, not about marketable
