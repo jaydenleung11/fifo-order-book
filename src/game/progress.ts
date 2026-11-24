@@ -1,5 +1,5 @@
 /** Best stars per level, kept in this browser only. */
-const KEY = 'ftr-stars'
+const KEY = 'mtb-stars'
 
 export function loadStars(): Record<number, number> {
   try {

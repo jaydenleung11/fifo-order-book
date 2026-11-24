@@ -2,49 +2,57 @@
 @import "@fontsource/lilita-one/400.css";
 @import "@fontsource/atkinson-hyperlegible-next/400.css";
 @import "@fontsource/atkinson-hyperlegible-next/700.css";
+@import "@fontsource/jetbrains-mono/600.css";
 
 /*
-  Food Truck Rush. Midday street food: a butter-yellow sky, apricot
-  pavement, a teal truck with a cherry awning, and plum for ink (never
-  black). Lilita One is the hand-painted truck sign; Atkinson Hyperlegible
-  Next does every small word, chosen because it stays readable when tiny.
+  Match the Book. A sunny trading-pit board on apricot paper.
+  Bids are teal and point up; asks are coral, point down and carry
+  diagonal hatching, so side never depends on colour alone. Plum is the
+  ink (never black), gold marks the head of a lane.
+  Lilita One sets prices and numbers like a painted board; Atkinson
+  Hyperlegible Next does every small word; JetBrains Mono is only for the
+  code tags (enqueue O(1)).
 */
 :root {
   color-scheme: light;
-  --sky: #ffd970;
-  --sky-hi: #ffe9a8;
-  --street: #f6b06a;
-  --curb: #e58f45;
-  --truck: #1d8a84;
-  --truck-dk: #126660;
-  --awning: #e8483d;
-  --paper: #fff7e4;
-  --ink: #2f1d45;
-  --ink-soft: #5d4a73;
-  --mint: #2f9e5f;
-  --tomato: #c8352b;
-  --focus: #2f1d45;
+  --bg: #ffe4c7;
+  --bg-hi: #fff1df;
+  --paper: #fff9f0;
+  --board: #ffd2a6;
+  --rule: #e9a673;
+  --ink: #2a2140;
+  --ink-soft: #5b4f72;
+  --bid: #128a78;
+  --bid-soft: #d3f1ea;
+  --ask: #dd4f33;
+  --ask-soft: #ffe0d6;
+  --gold: #ffc23a;
+  --good: #23824a;
+  --bad: #c0331f;
 }
 
 @theme inline {
-  --color-sky: var(--sky);
-  --color-sky-hi: var(--sky-hi);
-  --color-street: var(--street);
-  --color-curb: var(--curb);
-  --color-truck: var(--truck);
-  --color-truck-dk: var(--truck-dk);
-  --color-awning: var(--awning);
+  --color-bg: var(--bg);
+  --color-bg-hi: var(--bg-hi);
   --color-paper: var(--paper);
+  --color-board: var(--board);
+  --color-rule: var(--rule);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
-  --color-mint: var(--mint);
-  --color-tomato: var(--tomato);
+  --color-bid: var(--bid);
+  --color-bid-soft: var(--bid-soft);
+  --color-ask: var(--ask);
+  --color-ask-soft: var(--ask-soft);
+  --color-gold: var(--gold);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
   --font-sign: "Lilita One", ui-rounded, system-ui, sans-serif;
   --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 html {
-  background: var(--sky);
+  background: var(--bg);
   color: var(--ink);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -52,16 +60,20 @@ html {
 
 body {
   margin: 0;
-  font-family: var(--font-sans);
   min-height: 100dvh;
+  font-family: var(--font-sans);
   background:
-    radial-gradient(circle at 88% 6%, #fff3c4 0 60px, transparent 61px),
-    linear-gradient(var(--sky-hi), var(--sky) 55%);
-  background-attachment: fixed;
+    radial-gradient(circle at 12% -10%, var(--bg-hi) 0 280px, transparent 281px),
+    var(--bg);
+}
+
+/* No rubber-band bounce with a mouse; phones keep pull-to-refresh. */
+@media (pointer: fine) {
+  html { overscroll-behavior: none; }
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--ink);
   outline-offset: 3px;
   border-radius: 10px;
 }
@@ -71,21 +83,12 @@ body {
   letter-spacing: 0.01em;
 }
 
-/* The awning: cherry and cream stripes with a scalloped edge. */
-.ftr-awning {
-  background: repeating-linear-gradient(90deg, var(--awning) 0 22px, var(--paper) 22px 44px);
-  -webkit-mask: radial-gradient(circle at 11px 100%, transparent 7px, #000 7.5px) 0 0 / 22px 100% repeat-x;
-  mask: radial-gradient(circle at 11px 100%, transparent 7px, #000 7.5px) 0 0 / 22px 100% repeat-x;
+/* Ask chips carry hatching so the side reads without colour. */
+.hatch {
+  background-image: repeating-linear-gradient(-45deg, transparent 0 5px, color-mix(in srgb, var(--ask) 16%, transparent) 5px 7px);
 }
 
-/* Paper ticket with a torn bottom edge. */
-.ftr-ticket {
-  background: var(--paper);
-  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 8px 100%;
-  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 8px 100%;
-}
-
-.ftr-receipt {
+.receipt {
   background: var(--paper);
   -webkit-mask:
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 51% repeat-x,
@@ -95,88 +98,47 @@ body {
     conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / 14px 51% repeat-x;
 }
 
-/* The glowing spot in front of the window. */
-.ftr-spot {
-  background: radial-gradient(closest-side, #fffdf0, #fff1a8 45%, #ffd94a 70%, transparent);
-  border-radius: 50%;
-  animation: ftr-pulse 1.6s ease-in-out infinite;
+/* A pulsing gold ring on the chip the rule fills next. */
+.head-glow-ring {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+  animation: ring 1.4s ease-in-out infinite;
+}
+@keyframes ring {
+  50% { outline-offset: 4px; outline-color: color-mix(in srgb, var(--gold) 55%, transparent); }
 }
 
-@keyframes ftr-pulse {
-  50% { transform: scale(1.12); opacity: 0.75; }
-}
-
-.ftr-steam circle {
-  animation: ftr-puff 0.9s ease-in-out infinite alternate;
+.steam circle {
+  animation: puff 0.9s ease-in-out infinite alternate;
   transform-box: fill-box;
   transform-origin: center;
 }
-.ftr-steam circle:nth-child(2) { animation-delay: 0.3s; }
-
-@keyframes ftr-puff {
+.steam circle:nth-child(2) { animation-delay: 0.3s; }
+@keyframes puff {
   to { transform: translateY(-3px) scale(1.2); }
 }
 
-.ftr-wave {
-  animation: ftr-wave 0.5s ease-in-out infinite alternate;
-  transform-origin: 8px 38px;
-}
-
-@keyframes ftr-wave {
-  from { transform: rotate(-12deg); }
-  to { transform: rotate(10deg); }
-}
-
-/* Steam from the truck's chimney. */
-.ftr-chimney span {
-  position: absolute;
-  left: 50%;
-  width: 14px;
-  height: 14px;
-  margin-left: -7px;
-  border-radius: 50%;
-  background: #fffdf5;
-  opacity: 0;
-  animation: ftr-rise 2.4s ease-out infinite;
-}
-.ftr-chimney span:nth-child(2) { animation-delay: 0.8s; }
-.ftr-chimney span:nth-child(3) { animation-delay: 1.6s; }
-
-@keyframes ftr-rise {
-  0% { transform: translate(0, 0) scale(0.5); opacity: 0.9; }
-  100% { transform: translate(10px, -46px) scale(1.6); opacity: 0; }
-}
-
-.ftr-bob {
-  animation: ftr-bob 1.1s ease-in-out infinite;
-}
-@keyframes ftr-bob {
-  50% { transform: translateY(-2px); }
-}
-
 /* Operation tags: pop in, hold, fade. They live for 1.1 s. */
-.ftr-tag {
-  animation: ftr-tag 1.1s ease-out forwards;
-}
-@keyframes ftr-tag {
+.op-tag { animation: op-tag 1.1s ease-out forwards; }
+@keyframes op-tag {
   0% { opacity: 0; transform: translateY(8px); }
   14% { opacity: 1; transform: none; }
   75% { opacity: 1; transform: none; }
   100% { opacity: 0; transform: translateY(-10px); }
 }
-@keyframes ftr-tag-fade {
+@keyframes op-fade {
   0%, 80% { opacity: 1; }
   100% { opacity: 0; }
 }
 
+/* A shake for the market order when patience is nearly gone. */
+.hurry { animation: hurry 0.4s ease-in-out infinite; }
+@keyframes hurry {
+  25% { transform: rotate(-2deg); }
+  75% { transform: rotate(2deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ftr-tag { animation-name: ftr-tag-fade; }
-  .ftr-spot,
-  .ftr-steam circle,
-  .ftr-wave,
-  .ftr-chimney span,
-  .ftr-bob {
-    animation: none;
-  }
-  .ftr-chimney span:first-child { opacity: 0.6; transform: translate(4px, -18px); }
+  .head-glow-ring, .steam circle, .hurry { animation: none; }
+  .op-tag { animation-name: op-fade; }
 }

@@ -7,7 +7,7 @@ let muted = readMuted()
 
 function readMuted(): boolean {
   try {
-    return localStorage.getItem('ftr-muted') === '1'
+    return localStorage.getItem('mtb-muted') === '1'
   } catch {
     return false
   }
@@ -20,7 +20,7 @@ export function isMuted() {
 export function setMuted(m: boolean) {
   muted = m
   try {
-    localStorage.setItem('ftr-muted', m ? '1' : '0')
+    localStorage.setItem('mtb-muted', m ? '1' : '0')
   } catch {
     /* storage can be blocked; the toggle still works for this visit */
   }
