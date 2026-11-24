@@ -1,183 +1,115 @@
-# First in, first filled
+# Match the Book
 
-A course project about **queues** for NYU CSCI-UA.0102-060 Data Structures, Fall 2026, by
+A small game about **queues** for NYU CSCI-UA.0102-060 Data Structures, Fall 2026, by
 Aarav Kyparlis (ak13728) and Jayden Leung (jal9756).
 
-- **Version 2, Food Truck Rush** (the game), at <https://fifo-order-book.vercel.app/>
-- **Version 1, the order book**, at <https://fifo-order-book.vercel.app/v1/>
+Live: <https://fifo-order-book.vercel.app/>
+Repository: <https://github.com/jaydenleung11/fifo-order-book>
 
-Repository: <https://github.com/jaydenleung11/fifo-order-book>. Version 1 is preserved as the git
-tag `v1` and the branch `v1-archive`.
+You are the matching engine of an order book. Bids sit on the left and asks on the right. Each
+price level is a **lane**, and each lane is a FIFO queue of order chips. A chip shows its arrival
+number and size, and a small trader. New limit orders slide onto the **tail** of their lane
+(`enqueue`, O(1)). Market orders arrive in the middle, each with a size and a patience ring. You
+fill them by tapping the **head** chip of the best-priced lane (`dequeue`, O(1)).
 
-## Version 2: Food Truck Rush
+## Levels
 
-You run a food truck window, and the line is a FIFO queue. Customers join at the **back**
-(`enqueue`) and you serve the **front** (`dequeue`). Serving anyone else is possible, but the
-people you skipped get angry and you lose points. Serving in order builds a combo.
-
-| Level | Idea it adds |
+| Level | What it adds |
 | --- | --- |
-| 1. One line | Serve the front. A glowing spot marks the front, a signpost marks the back. |
-| 2. Rush hour | Faster arrivals, numbered tickets, and two-item orders that stay at the front until both are served (a partial fill). Some customers wave a tip to tempt you to serve them early. |
-| 3. Three lanes | Lanes priced $11, $10 and $9, one queue each. Serve the best price first, then the front of that lane. A short screen then reveals that this is an order book: lane = price level, customer = limit order, ready item = market order. That is price-time priority. |
-| 4. Chaos mode | The rush-hour customers again, under LIFO (newest first). At the end, both rules are replayed on the same customers with the same button presses and shown side by side: how fair each was, the longest wait, and the order people were served in. |
+| 1. One lane | One ask lane. Fill from the head. |
+| 2. Partial fills | Bigger chips and bigger orders. A tap trades min(chip, order still wanted); a chip shrinks and stays at the head until it is used up, so a big order takes several taps. |
+| 3. Price levels | Three bid and three ask lanes. A buy takes from the asks, a sell from the bids. Best price first, then the head of that lane. Afterwards one line names it: price-time priority. |
+| 4. FIFO vs LIFO | The identical order sequence from level 3 (same seed), but the rule is now LIFO: the newest chip fills first. At the end both rules are replayed on the same orders with your tap times and shown side by side: fairness, longest wait, and how many chips were filled ahead of an older one. |
 
-In level 3 the waiting customers are buyers bidding a price, and each ready item is the truck
-selling "at market" into the best bid. (The brief said "a buyer arriving"; we put the market
-order on the seller's side so the waiting customers can stay the buyers.)
+**Mistakes.** Tapping a chip that is not the head is a *queue jump*: an `✕ queue jump O(n)` tag,
+−25 points, the combo resets, and every chip that was skipped turns angry (frown, brows, steam).
+Tapping a lane at a worse price is a *price violation* (`✕ worse price`), and the traders at the
+better price turn angry. Mistakes always carry a shape or icon (✕, the angry face, a red tape
+entry with ✕), never colour alone. Bids point up and asks point down and are hatched.
 
-**Controls.** Space or Enter serves (in chaos mode it serves the newest). Click or tap any
-customer to serve them out of turn. In level 3, keys `1` `2` `3` serve a lane, and `↑`/`↓` move
-the lane that Space serves. `P` or `Esc` pauses. There is a mute button, and a "How it works"
-panel that starts collapsed.
+**Scoring.** 10 points per correct fill, times a combo multiplier that grows by ×1 every 4
+correct fills (up to ×4). A market order that runs out of patience costs 10 points. The fairness
+meter is the share of fills that took the oldest chip at the best price. Stars: 1 for finishing,
+1 for at least 90% fairness with at most one missed order, 1 for the level's score target.
 
-**Scoring.** You get 10 points per item served in order (5 if the customer had already waited
-too long). The multiplier goes up by ×1 every 4 in-order serves, to a maximum of ×4. Serving out
-of order costs 25 points and resets the combo. The fairness meter shows the share of items that
-went to whoever had waited longest. Stars: 1 for finishing, 1 for at least 90% fairness, and 1
-for reaching the level's score target.
+**Controls.** Tap or click a chip. Space or Enter fills by the rule at the best price. Keys
+`1` `2` `3` fill from a lane (1 is the best price). `P` or `Esc` pauses, and the game pauses
+when the tab is hidden. Sound is synthesized (no files) and has a mute button. "How it works"
+starts collapsed. Animations follow `prefers-reduced-motion`. Tested at 1366×820 and 375×812.
 
-### How it is built
+## How it is built
 
 ```
-src/game/engine/        pure TypeScript, no React or DOM
-  line.ts               Line: Version 1's linked-list OrderQueue plus removeWhere()
-                        (cutting the line, O(n))
-  levels.ts             level settings and scriptFor(): the seeded customer sequence
-  rng.ts                Mulberry32 seeded random numbers
-  sim.ts                Sim: arrivals, kitchen, serving, scoring, an input log and an event
-                        log; replay() rebuilds a game from its inputs; autoplay() runs the
-                        FIFO/LIFO comparison
-  game.test.ts          Vitest: FIFO order, partial service, lane priority, LIFO vs FIFO
-                        on identical customers, replay determinism
-src/game/               React UI: Game (screens), Play (game clock + HUD), Scene (truck
-                        and lanes), art/Person (customers drawn as SVG), sound (Web Audio)
-index.html              Version 2 entry (/)
-v1/index.html           Version 1 entry (/v1/), code in src/app, src/components, src/engine
+src/engine/            pure TypeScript, no React or DOM
+  queue.ts             OrderQueue: doubly linked list, O(1) enqueue / dequeue / peek
+  line.ts              Line: OrderQueue plus removeWhere() (a queue jump, O(n))
+  levels.ts            level settings and scriptFor(): the seeded order sequence
+  rng.ts               Mulberry32 seeded random numbers
+  match.ts             Match: the game as a simulation. advance(t) runs the clock
+                       (limit arrivals, market arrivals, patience); tap(t, lane, chip)
+                       fills. Every tap goes into an input log and every change into an
+                       event log. replay() rebuilds a game from its inputs; autoplay()
+                       runs the FIFO/LIFO comparison.
+  match.test.ts        Vitest: FIFO order, queue jumps, partial fills, multi-lane
+                       price-time priority, LIFO vs FIFO on identical orders, replay
+  orderBook.ts         the original Version 1 order book engine (still tested)
+  session.ts           Version 1's event-log cursor
+  engine.test.ts       Vitest for the Version 1 engine
+src/game/              React UI
+  Game.tsx             screens: menu, intro, play, summary, reveal, compare
+  Play.tsx             game clock, frame loop, keyboard, HUD
+  Board.tsx            lanes, chips, head/tail markers, market order, op tags, tape
+  art/Trader.tsx       trader portraits drawn in SVG, three moods
+  sound.ts             Web Audio cues
 ```
 
-The game is deterministic. The customers come from a seeded script, and every player action is
-logged with its game-clock time, so `replay(level, inputs)` rebuilds exactly the same game.
-Chaos mode uses the same seed as rush hour.
+The game is deterministic: orders come from a seeded script, and every tap is logged with its
+game-clock time, so `replay(level, inputs)` rebuilds exactly the same game and event log.
 
-### Design
+Stack: Vite 8, React 19, TypeScript, Tailwind CSS 4, Motion, Lucide icons, Vitest, and
+self-hosted fonts via Fontsource.
 
-The look is midday street food: a butter-yellow sky, apricot pavement, a teal truck with a
-cherry-and-cream awning, and plum instead of black for text. Fonts are Lilita One (the
-hand-painted truck sign) and Atkinson Hyperlegible Next (small text, chosen because it stays
-readable when tiny). All art is drawn by us in SVG and CSS, with no logos or brands. Mood is
-shown by shape as well as colour: a smile; a flat mouth with a sweat drop; a frown with angry
-brows and steam. Animations respect `prefers-reduced-motion`.
+## Design
 
-Design skills used (in `.claude/skills/`):
-- **frontend-design:** palette and type plan, one bold element (the truck), sentence case,
-  no template chrome.
-- **web-design-guidelines:** audited `src/game`. We fixed the findings: hover states, the
-  fairness bar animated with transform, autofocus only with a mouse, focus on Resume when
-  paused, `translate="no"` on code tokens, balanced headings.
+A sunny trading-pit board on apricot paper. Bids are teal and point up; asks are coral, point
+down and are hatched. Plum is the ink (never black) and gold marks the chip the rule fills next.
+Fonts: Lilita One for prices and numbers, like a painted board; Atkinson Hyperlegible Next for
+the few small words; JetBrains Mono only for the code tags (`enqueue O(1)`). All art is ours, in
+SVG and CSS. There are no bank or brand logos anywhere; traders have first names only.
+
+Design skills used (copied into `.claude/skills/`):
+- **frontend-design:** the palette and type plan, one bold element (the board), sentence case,
+  almost no text.
+- **web-design-guidelines:** audited `src/game`. Fixes made: a heading on the play screen, hover
+  feedback on chips, overscroll only with a mouse, `translate="no"` on code tags, autofocus only
+  with a mouse, visible focus rings, tabular numbers.
 - **ui-ux-pro-max** and **taste-skill:** used as checklists for touch targets and
   anti-template rules.
 
-From **kokonutui**, the summary screen borrows the torn-paper look of its receipt-printer
-component. We drew our own simpler version rather than shipping its physics. Lucide supplies the
-UI icons.
+From **kokonutui**, the summary screen borrows the torn-paper look of its receipt component; we
+drew our own simple version in CSS.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173 (game) and http://localhost:5173/v1/ (order book)
-npm test           # Vitest: Version 1 engine + Version 2 game engine
-npm run build      # type-check + production build of both pages into dist/
+npm run dev        # http://localhost:5173
+npm test           # Vitest: both engines
+npm run build      # type-check + production build into dist/
 ```
 
 ## Deploy
 
-**Vercel (live site).** The Vercel project is linked to this repository with the Vite preset
-(build `npm run build`, output `dist`). Every push to `main` deploys to production. The build
-produces `dist/index.html` (the game) and `dist/v1/index.html` (the order book).
-`vercel.json` only redirects `/v1` to `/v1/`. No project settings or domains changed.
+The Vercel project is linked to this repository with the Vite preset (build `npm run build`,
+output `dist`). Every push to `main` deploys to production. `vercel.json` redirects the old
+`/v1` paths to `/`. No project settings or domains were changed.
 
-**GitHub Pages (manual fallback).** Set Settings → Pages → Source to **GitHub Actions**, then run
-the "Deploy to GitHub Pages" workflow. It builds with `BASE_PATH=/<repo-name>/`. The game's link
-to Version 1 and Version 1's link back are relative, so both work under that path.
+A manual GitHub Pages workflow is also in `.github/workflows`; it builds with
+`BASE_PATH=/<repo-name>/`.
 
-## Version 1: the order book (at /v1/)
+## History
 
-An interactive order book in which every price level is a queue. New limit orders `enqueue` at
-the tail, and market orders `dequeue` from the head of the best price level. It is unchanged
-except for a "Back to the game" link.
-
-### What it shows
-
-- **A 3D order book that runs by itself.** The *Live market* mode invents a steady flow of
-  orders, so you can just watch. Each price level is a lane of blocks: block height is the order's
-  size, and every queue's **head** faces the middle aisle. New orders drop in at the **tail**. A
-  glowing market order walks down the aisle to the best price and trades with the head. Filled
-  orders float away, and the rest of the line slides forward. Pause at any time and step one
-  operation at a time (`←`/`→`), or drag to orbit the camera.
-- **Inside one queue.** The lane being worked on is redrawn as a linked list (`head → … → tail →
-  null`), with the pointer change for each step (`tail.next = node`, `head = head.next`) and its
-  cost, O(1). Click any lane in 3D to pin it.
-- **Who trades first? (FIFO vs LIFO).** A small animated picture of four orders shows the queue
-  (oldest first) and the stack (newest cuts the line). Clicking either one switches the rule for
-  the whole book. After each market order, the book replays it both ways on a copy.
-- **Guided scenarios** (same price, partial fill, sweeping levels). They advance on their own, one
-  caption per step, and can be deep-linked (`#same-price`, `#partial`, `#sweep`).
-- **Build your own** (`#build`): place limit and market orders yourself.
-- **Predict the fill**: pauses before each trade, and you click the block you think fills first.
-- **The code**: the matching algorithm's pseudocode, with the running line lit up. Also a
-  **trade tape**, a **depth chart** and a split-flap **last trade** board.
-- **Flat view**: the same book as 2D order chips or checkout lines. Phones start in this view,
-  and it is also used when WebGL is unavailable.
-
-Controls: Step back, Play/Pause, Step, Reset, and Speed (½×, 1×, 2×, 4×). Keyboard: `←`/`→` step,
-`P` plays or pauses. With reduced motion turned on, nothing moves until you press Play.
-
-### How it is built
-
-```
-src/engine/        pure TypeScript, no React or DOM
-  queue.ts         OrderQueue: doubly linked list, O(1) enqueue / dequeue / peek
-  orderBook.ts     OrderBook: one OrderQueue per price; addLimit, market, clone,
-                   compareFairness; every operation returns LogEntry[]
-                   (an event + a snapshot of the book right after it)
-  session.ts       append-only event log + cursor; Step/Back/Play/Reset are
-                   cursor moves, so playback is deterministic
-  engine.test.ts   Vitest: FIFO order, partial fills, multi-level sweeps,
-                   price priority, LIFO contrast, playback determinism
-src/app/           controller (useReducer), live order generator
-                   (seeded, repeatable), explanations, pseudocode, scenarios
-src/components/    three/Book3D (react-three-fiber scene), QueueDiagram
-                   (linked list), RuleCard, flat Book, controls, panels
-```
-
-Stack: Vite 8, React 19, TypeScript 7, Tailwind CSS 4, three.js with react-three-fiber and
-drei (the 3D book, lazy-loaded), Motion (layout and enter/exit animations), Radix primitives (toggle groups, switch) styled shadcn-style with `cva`, Lucide
-icons, Vitest, and self-hosted fonts (Schibsted Grotesk, JetBrains Mono for code) via
-Fontsource.
-
-### Decisions we made (and why)
-
-- **Limit orders never cross the spread.** You pick a price from your own side's levels, so a
-  limit order always rests in a queue. That keeps the story about queues, not about marketable
-  limit orders.
-- **LIFO is shown, never used for real.** `popTail()`/`peekTail()` exist only so the toggle can
-  show the queue being misused as a stack.
-- **Order ids are assigned in arrival order**, and arrival time is shown as a market clock
-  (`9:30:07`) to make "time priority" concrete.
-- **The fairness card appears only after a market order finishes**, so it can't give away the
-  answer in Predict mode.
-- **Side is never colour alone.** Bids are cyan with a solid left edge and an ↗ glyph; asks are
-  amber with a hatched right edge and an ↘ glyph. The tape says "Buy"/"Sell" in words.
-- **Motion:** `MotionConfig reducedMotion="user"` plus a CSS `prefers-reduced-motion` rule.
-  Chip width animates on purpose, because the shrinking width *is* the partial fill.
-- **Design skills** (copied into `.claude/skills/`): taste-skill, ui-ux-pro-max, Anthropic's
-  frontend-design, and Vercel's web-design-guidelines and react-best-practices. We used their
-  accessibility and data-UI rules. We declined two suggestions: ui-ux-pro-max proposed a light
-  "claymorphism + Comic Neue" style, and taste-skill dealt "lime on true black", a pattern
-  frontend-design lists as a generated-UI tell. Both clashed with the brief's dark, intentional
-  look. We kept sentence-case labels (frontend-design) over the guidelines' Title Case rule.
-- **kokonutui:** we used its split-flap text board (MIT, header kept) and its sliding-pill
-  technique for segmented controls. **bklit-ui** was skipped: it is a visx-based monorepo, and a
-  10-bar cumulative depth chart is clearer as ~60 lines of hand-written SVG.
+- **Version 1**, an interactive 3D order book (tag `v1`, branch `v1-archive`).
+- **Version 2**, *Food Truck Rush*, a food-truck game about FIFO lines.
+- **Match the Book** (this version) replaces both on the live site. The state right before the
+  rework is tagged `v1-before-game`. Check out any tag to run an older version.
